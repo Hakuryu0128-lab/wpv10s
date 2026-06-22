@@ -4035,22 +4035,29 @@ img { max-width: 100%; display: block; }
 }
 .ob-overlay[hidden] { display: none; }
 
-/* ふわっと漂う背景のグラデブロブ */
-.ob-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+/* ふわっと漂う背景のグラデブロブ（アンビエント・全テーマ対応） */
+.ob-bg {
+  position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+  background:
+    radial-gradient(60vmax 60vmax at 78% 12%, color-mix(in srgb, var(--brand) 9%, transparent), transparent 70%),
+    radial-gradient(55vmax 55vmax at 8% 92%, color-mix(in srgb, var(--brand) 7%, transparent), transparent 70%);
+}
 .ob-blob {
   position: absolute; border-radius: 50%;
-  filter: blur(44px); opacity: .5;
+  filter: blur(48px); opacity: .42;
   will-change: transform; transform: translateZ(0);
 }
-.ob-blob--1 { width: 46vmax; height: 46vmax; left: -12vmax; top: -10vmax;
-  background: var(--brand-light, #c7d2fe); animation: obFloat1 18s ease-in-out infinite; }
-.ob-blob--2 { width: 38vmax; height: 38vmax; right: -10vmax; top: 18vmax;
-  background: var(--brand, #6366f1); opacity: .28; animation: obFloat2 22s ease-in-out infinite; }
-.ob-blob--3 { width: 40vmax; height: 40vmax; left: 20vmax; bottom: -16vmax;
-  background: var(--brand-light, #a5b4fc); opacity: .35; animation: obFloat3 26s ease-in-out infinite; }
-@keyframes obFloat1 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(6vmax,4vmax) scale(1.08); } }
-@keyframes obFloat2 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-5vmax,3vmax) scale(1.12); } }
-@keyframes obFloat3 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(3vmax,-5vmax) scale(1.06); } }
+/* --brand-light は淡すぎて白背景に溶けるため、ブランド色系で視認できるようにする */
+.ob-blob--1 { width: 52vmax; height: 52vmax; left: -10vmax; top: -14vmax;
+  background: var(--brand); animation: obFloat1 19s ease-in-out infinite; }
+.ob-blob--2 { width: 46vmax; height: 46vmax; right: -8vmax; top: 6vmax;
+  background: var(--brand-dark); opacity: .30; animation: obFloat2 23s ease-in-out infinite; }
+.ob-blob--3 { width: 48vmax; height: 48vmax; left: 6vmax; bottom: -16vmax;
+  background: var(--brand-hover, var(--brand)); opacity: .34; animation: obFloat3 27s ease-in-out infinite; }
+/* 拡大縮小は使わず translate のみ（iPadのblur再ラスタライズ負荷を避ける） */
+@keyframes obFloat1 { 0%,100% { transform: translate3d(0,0,0); } 50% { transform: translate3d(9vmax,7vmax,0); } }
+@keyframes obFloat2 { 0%,100% { transform: translate3d(0,0,0); } 50% { transform: translate3d(-8vmax,6vmax,0); } }
+@keyframes obFloat3 { 0%,100% { transform: translate3d(0,0,0); } 50% { transform: translate3d(7vmax,-8vmax,0); } }
 
 .ob-stage { position: relative; z-index: 1; flex: 1 1 auto; }
 /* スライドは絶対配置で重ねる。flexで並べると切替中に2枚が押し合って再フロー→カクつくため。
