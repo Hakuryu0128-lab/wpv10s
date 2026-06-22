@@ -4035,29 +4035,29 @@ img { max-width: 100%; display: block; }
 }
 .ob-overlay[hidden] { display: none; }
 
-/* ふわっと漂う背景のグラデブロブ（アンビエント・全テーマ対応） */
+/* オンボーディング背景：白(やや灰)＋外側から斜めにぼやっと発光。複数色・薄め・広いフェード・ゆっくり巡回＋明滅 */
 .ob-bg {
   position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
-  background:
-    radial-gradient(60vmax 60vmax at 78% 12%, color-mix(in srgb, var(--brand) 9%, transparent), transparent 70%),
-    radial-gradient(55vmax 55vmax at 8% 92%, color-mix(in srgb, var(--brand) 7%, transparent), transparent 70%);
+  background: color-mix(in srgb, var(--text) 7%, var(--bg));
 }
-.ob-blob {
-  position: absolute; border-radius: 50%;
-  filter: blur(48px); opacity: .42;
-  will-change: transform; transform: translateZ(0);
-}
-/* --brand-light は淡すぎて白背景に溶けるため、ブランド色系で視認できるようにする */
-.ob-blob--1 { width: 52vmax; height: 52vmax; left: -10vmax; top: -14vmax;
-  background: var(--brand); animation: obFloat1 19s ease-in-out infinite; }
-.ob-blob--2 { width: 46vmax; height: 46vmax; right: -8vmax; top: 6vmax;
-  background: var(--brand-dark); opacity: .30; animation: obFloat2 23s ease-in-out infinite; }
-.ob-blob--3 { width: 48vmax; height: 48vmax; left: 6vmax; bottom: -16vmax;
-  background: var(--brand-hover, var(--brand)); opacity: .34; animation: obFloat3 27s ease-in-out infinite; }
-/* 拡大縮小は使わず translate のみ（iPadのblur再ラスタライズ負荷を避ける） */
-@keyframes obFloat1 { 0%,100% { transform: translate3d(0,0,0); } 50% { transform: translate3d(9vmax,7vmax,0); } }
-@keyframes obFloat2 { 0%,100% { transform: translate3d(0,0,0); } 50% { transform: translate3d(-8vmax,6vmax,0); } }
-@keyframes obFloat3 { 0%,100% { transform: translate3d(0,0,0); } 50% { transform: translate3d(7vmax,-8vmax,0); } }
+.ob-glow { position: absolute; border-radius: 50%; filter: blur(90px); will-change: transform, opacity; }
+.ob-glow--1 { width: 64vmax; height: 36vmax; left: 6vmax;  top: 4vmax;
+  background: radial-gradient(60% 60% at 50% 50%, #A855F7 0%, rgba(168,85,247,0) 75%); animation: obGlow1 40s ease-in-out infinite; }
+.ob-glow--2 { width: 56vmax; height: 30vmax; left: 42vmax; top: 4vmax;
+  background: radial-gradient(60% 60% at 50% 50%, #22D3EE 0%, rgba(34,211,238,0) 75%); animation: obGlow2 48s ease-in-out infinite; }
+.ob-glow--3 { width: 60vmax; height: 32vmax; left: 40vmax; top: 40vmax;
+  background: radial-gradient(60% 60% at 50% 50%, #6366F1 0%, rgba(99,102,241,0) 75%); animation: obGlow3 43s ease-in-out infinite; }
+.ob-glow--4 { width: 54vmax; height: 30vmax; left: 4vmax;  top: 42vmax;
+  background: radial-gradient(60% 60% at 50% 50%, #F472B6 0%, rgba(244,114,182,0) 75%); animation: obGlow4 54s ease-in-out infinite; }
+.ob-glow--5 { width: 46vmax; height: 26vmax; left: 26vmax; top: 22vmax;
+  background: radial-gradient(60% 60% at 50% 50%, #FBBF24 0%, rgba(251,191,36,0) 78%); animation: obGlow5 36s ease-in-out infinite; }
+/* 画面全体をランダムに巡回＋ふわっと明滅。translate/opacityのみ（拡大縮小なし）でiPadも軽い */
+@keyframes obGlow1 { 0%,100%{ transform: rotate(-24deg) translate3d(-26vmax,-20vmax,0); opacity:.24;} 25%{ transform: rotate(-24deg) translate3d(20vmax,-10vmax,0); opacity:.34;} 50%{ transform: rotate(-24deg) translate3d(30vmax,22vmax,0); opacity:.22;} 75%{ transform: rotate(-24deg) translate3d(-14vmax,18vmax,0); opacity:.32;} }
+@keyframes obGlow2 { 0%,100%{ transform: rotate(20deg) translate3d(18vmax,-16vmax,0); opacity:.20;} 25%{ transform: rotate(20deg) translate3d(-22vmax,-6vmax,0); opacity:.30;} 50%{ transform: rotate(20deg) translate3d(-30vmax,20vmax,0); opacity:.20;} 75%{ transform: rotate(20deg) translate3d(10vmax,26vmax,0); opacity:.28;} }
+@keyframes obGlow3 { 0%,100%{ transform: rotate(-16deg) translate3d(16vmax,18vmax,0); opacity:.22;} 25%{ transform: rotate(-16deg) translate3d(-20vmax,24vmax,0); opacity:.32;} 50%{ transform: rotate(-16deg) translate3d(-26vmax,-14vmax,0); opacity:.22;} 75%{ transform: rotate(-16deg) translate3d(14vmax,-20vmax,0); opacity:.30;} }
+@keyframes obGlow4 { 0%,100%{ transform: rotate(24deg) translate3d(-18vmax,16vmax,0); opacity:.20;} 25%{ transform: rotate(24deg) translate3d(18vmax,24vmax,0); opacity:.30;} 50%{ transform: rotate(24deg) translate3d(26vmax,-16vmax,0); opacity:.20;} 75%{ transform: rotate(24deg) translate3d(-12vmax,-22vmax,0); opacity:.28;} }
+@keyframes obGlow5 { 0%,100%{ transform: rotate(-10deg) translate3d(0,-10vmax,0); opacity:.14;} 33%{ transform: rotate(-10deg) translate3d(18vmax,10vmax,0); opacity:.22;} 66%{ transform: rotate(-10deg) translate3d(-16vmax,8vmax,0); opacity:.16;} }
+@media (prefers-reduced-motion: reduce){ .ob-glow{ animation: none; opacity: .26; } }
 
 .ob-stage { position: relative; z-index: 1; flex: 1 1 auto; }
 /* スライドは絶対配置で重ねる。flexで並べると切替中に2枚が押し合って再フロー→カクつくため。
@@ -4117,8 +4117,12 @@ img { max-width: 100%; display: block; }
 .ob-inline { display: flex; gap: 8px; max-width: 360px; margin: 0 auto 12px; }
 .ob-inline .ob-input { flex: 1; }
 .ob-mini-btn {
-  flex: 0 0 auto; padding: 0 16px; border-radius: 14px;
-  background: var(--brand); color: #fff; font-size: 14px; font-weight: 700;
+  flex: 0 0 auto; padding: 12px 18px; border-radius: 999px;
+  -webkit-backdrop-filter: blur(14px) saturate(180%); backdrop-filter: blur(14px) saturate(180%);
+  background: color-mix(in srgb, var(--bg) 42%, transparent);
+  border: 1px solid color-mix(in srgb, #fff 55%, transparent);
+  box-shadow: 0 6px 18px rgba(34,36,58,.10), inset 0 1px 0 rgba(255,255,255,.6);
+  color: var(--text); font-size: 14px; font-weight: 700;
   transition: background var(--fast) var(--ease), transform var(--fast) var(--ease);
 }
 .ob-mini-btn:active { transform: scale(.95); }
@@ -4139,20 +4143,29 @@ img { max-width: 100%; display: block; }
   transition: width var(--med, .3s) var(--ease), background var(--med, .3s) var(--ease); }
 .ob-dots span.is-on { width: 22px; background: var(--brand); }
 .ob-nav { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 440px; }
-.ob-btn { padding: 14px 24px; border-radius: 16px; font-size: 16px; font-weight: 700;
+.ob-btn { padding: 14px 24px; border-radius: 999px; font-size: 16px; font-weight: 700;
+  -webkit-backdrop-filter: blur(16px) saturate(180%); backdrop-filter: blur(16px) saturate(180%);
   transition: background var(--fast) var(--ease), transform var(--fast) var(--ease), opacity var(--fast) var(--ease); }
 .ob-btn:active { transform: scale(.97); }
-.ob-btn--primary { flex: 1; background: var(--brand); color: #fff; box-shadow: 0 8px 22px rgba(79,70,229,.32); }
+.ob-btn--primary { flex: 1;
+  background: color-mix(in srgb, var(--brand) 52%, transparent);
+  border: 1px solid color-mix(in srgb, #fff 45%, transparent);
+  color: #fff; text-shadow: 0 1px 1px rgba(49,46,129,.25);
+  box-shadow: 0 8px 24px rgba(79,70,229,.30), inset 0 1px 0 rgba(255,255,255,.4); }
 .ob-btn--primary:disabled { opacity: .45; box-shadow: none; }
-.ob-btn--ghost { background: transparent; color: var(--text-muted); }
+.ob-btn--ghost {
+  background: color-mix(in srgb, var(--bg) 40%, transparent);
+  border: 1px solid color-mix(in srgb, #fff 50%, transparent);
+  box-shadow: 0 6px 18px rgba(34,36,58,.10), inset 0 1px 0 rgba(255,255,255,.55);
+  color: var(--text-muted); }
 .ob-btn--ghost[hidden] { display: none; }
 @media (hover: hover) {
-  .ob-btn--primary:hover { background: var(--brand-hover, var(--brand-dark)); }
+  .ob-btn--primary:hover { background: color-mix(in srgb, var(--brand) 64%, transparent); }
   .ob-chip:hover { border-color: var(--brand); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ob-blob { animation: none; }
+  .ob-glow { animation: none; }
 }
 
 /* バックアップ画面：危険ゾーン（完全削除） */

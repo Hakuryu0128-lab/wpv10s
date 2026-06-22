@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.44';
+const APP_VERSION = '10.16.45';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -5406,7 +5406,7 @@ function buildObSteps() {
       } },
 
     { key: 'location', html: () => `
-        <div class="ob-emoji" data-ob-stagger>📍</div>
+        <div class="ob-emoji" data-ob-stagger>🌤️</div>
         <h1 class="ob-title" data-ob-stagger>天気の地点</h1>
         <p class="ob-sub" data-ob-stagger>ホーム画面に表示する天気の場所です。<br>あとから設定や天気画面で変更できます。</p>
         <div class="ob-field" data-ob-stagger><label>都市名で設定</label>
