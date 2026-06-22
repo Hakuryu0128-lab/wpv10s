@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.40';
+const APP_VERSION = '10.16.41';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -5403,6 +5403,69 @@ function buildObSteps() {
           });
         };
         render();
+      } },
+
+    { key: 'location', html: () => `
+        <div class="ob-emoji" data-ob-stagger>📍</div>
+        <h1 class="ob-title" data-ob-stagger>天気の地点</h1>
+        <p class="ob-sub" data-ob-stagger>ホーム画面に表示する天気の場所です。<br>あとから設定や天気画面で変更できます。</p>
+        <div class="ob-field" data-ob-stagger><label>都市名で設定</label>
+          <div class="ob-inline">
+            <input class="ob-input" id="obCity" type="text" placeholder="例：熊本、札幌、Naha" />
+            <button class="ob-mini-btn" id="obCitySearch" type="button">検索</button>
+          </div>
+        </div>
+        <div class="ob-inline" data-ob-stagger style="justify-content:center;flex-wrap:wrap;gap:10px;">
+          <button class="ob-mini-btn" id="obGeoBtn" type="button">📍 現在地を使う</button>
+          <button class="ob-mini-btn" id="obTokyoBtn" type="button">東京にする</button>
+        </div>
+        <p class="ob-hint" id="obLocStatus" data-ob-stagger></p>`,
+      mount(slide) {
+        const status = slide.querySelector('#obLocStatus');
+        const showStatus = () => { status.textContent = `現在の地点：${state.settings.weatherName || '東京'}`; };
+        showStatus();
+        const input = slide.querySelector('#obCity');
+        const doCity = async () => {
+          const name = (input.value || '').trim();
+          if (!name) return;
+          status.textContent = '検索中…';
+          try {
+            const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=ja&format=json`;
+            const res = await fetch(url);
+            const geo = await res.json();
+            const hit = geo?.results?.[0];
+            if (!hit) { status.textContent = '都市が見つかりませんでした。別の表記でお試しください'; return; }
+            state.settings.weatherLat = hit.latitude;
+            state.settings.weatherLon = hit.longitude;
+            state.settings.weatherName = hit.name + (hit.admin1 ? `（${hit.admin1}）` : '');
+            _weatherCache = null;
+            showStatus();
+          } catch (e) { status.textContent = '検索に失敗しました。通信環境をご確認ください'; }
+        };
+        slide.querySelector('#obCitySearch').addEventListener('click', doCity);
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doCity(); } });
+        slide.querySelector('#obGeoBtn').addEventListener('click', () => {
+          if (!window.isSecureContext || !navigator.geolocation) {
+            status.textContent = '現在地はhttps接続でのみ使えます。都市名で設定してください';
+            return;
+          }
+          status.textContent = '現在地を取得中…';
+          navigator.geolocation.getCurrentPosition(pos => {
+            state.settings.weatherLat = pos.coords.latitude;
+            state.settings.weatherLon = pos.coords.longitude;
+            state.settings.weatherName = '現在地';
+            _weatherCache = null;
+            showStatus();
+          }, () => { status.textContent = '現在地の取得に失敗しました。都市名で設定してください'; },
+             { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 });
+        });
+        slide.querySelector('#obTokyoBtn').addEventListener('click', () => {
+          state.settings.weatherLat = 35.6895;
+          state.settings.weatherLon = 139.6917;
+          state.settings.weatherName = '東京';
+          _weatherCache = null;
+          showStatus();
+        });
       } },
 
     { key: 'done', nextLabel: '週案をはじめる', html: () => `
