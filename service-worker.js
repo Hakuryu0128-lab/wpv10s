@@ -1,9 +1,9 @@
-const CACHE_NAME = 'weeky-v10.16.42';
+const CACHE_NAME = 'weeky-v10.16.43';
 const ASSETS = [
   './',
   './index.html',
-  './styles.css?v=10.16.42',
-  './app.js?v=10.16.42',
+  './styles.css?v=10.16.43',
+  './app.js?v=10.16.43',
   './manifest.webmanifest',
   './vendor/jspdf.umd.min.js',
   './vendor/html2canvas.min.js',
