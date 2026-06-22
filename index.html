@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
+  <meta name="robots" content="noindex, nofollow" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
@@ -14,7 +15,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css?v=10.16.45" />
+  <link rel="stylesheet" href="styles.css?v=10.16.46" />
   <title>WEEKY</title>
 </head>
 <body>
@@ -695,6 +696,11 @@
                   <p class="settings-hint">授業記録・週案管理アプリ</p>
                 </div>
 
+                <div class="about-legal">
+                  <p class="about-legal-text">© 2026 WEEKY</p>
+                  <p class="about-legal-text">本アプリおよびその内容（コード・データ・デザインを含む）の無断転載・無断複製・無断持ち出し（再配布）を禁止します。</p>
+                </div>
+
                 <div class="danger-zone">
                   <h3 class="danger-zone-title">データの完全な削除</h3>
                   <p class="danger-zone-desc">この端末のWEEKYのデータ（週案・名簿・出席・評価・写真など）をすべて消して、初期状態に戻します。<strong>元に戻せません。</strong>必ず先にバックアップしてください。</p>
@@ -763,6 +769,17 @@
             </div>
           </div>
         </section>
+
+        <section class="panel-section support-card" id="supportCard">
+          <button class="support-card-close" aria-label="閉じる" title="閉じる"
+            onclick="document.getElementById('supportCard').style.display='none';try{localStorage.setItem('weeky_support_card_dismissed','1')}catch(e){}">×</button>
+          <div class="support-card-emoji">💛</div>
+          <div class="support-card-title">WEEKYを応援</div>
+          <p class="support-card-text">よければPayPayで応援を。任意・見返りはありません。</p>
+          <button class="support-card-btn"
+            onclick="switchView('settings');showSettingsCategory('support')">応援する</button>
+        </section>
+        <script>try{if(localStorage.getItem('weeky_support_card_dismissed'))document.getElementById('supportCard').style.display='none';}catch(e){}</script>
 
       </aside>
     </div><!-- /content-area -->
@@ -1169,6 +1186,6 @@
 
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/html2canvas.min.js"></script>
-<script src="app.js?v=10.16.45"></script>
+<script src="app.js?v=10.16.46"></script>
 </body>
 </html>

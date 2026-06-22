@@ -4083,12 +4083,16 @@ img { max-width: 100%; display: block; }
 .ob-field { text-align: left; margin: 0 auto 14px; max-width: 360px; }
 .ob-field label { display: block; font-size: 13px; font-weight: 700; color: var(--text-muted); margin: 0 0 6px 2px; }
 .ob-input {
-  width: 100%; padding: 13px 15px; font-size: 16px;
-  background: var(--bg-subtle); color: var(--text);
-  border: 1.5px solid transparent; border-radius: 14px;
+  width: 100%; padding: 13px 18px; font-size: 16px; color: var(--text);
+  -webkit-backdrop-filter: blur(14px) saturate(180%); backdrop-filter: blur(14px) saturate(180%);
+  background: color-mix(in srgb, var(--bg) 42%, transparent);
+  border: 1px solid color-mix(in srgb, #fff 55%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.5);
+  border-radius: 999px;
   transition: border-color var(--fast) var(--ease), background var(--fast) var(--ease);
 }
-.ob-input:focus { outline: none; border-color: var(--brand); background: var(--bg); }
+.ob-input::placeholder { color: color-mix(in srgb, var(--text) 45%, transparent); }
+.ob-input:focus { outline: none; border-color: var(--brand); background: color-mix(in srgb, var(--bg) 62%, transparent); }
 
 /* 教科・学級チップ */
 .ob-chips { display: flex; flex-wrap: wrap; gap: 9px; justify-content: center; max-width: 400px; margin: 0 auto 16px; }
@@ -4148,10 +4152,10 @@ img { max-width: 100%; display: block; }
   transition: background var(--fast) var(--ease), transform var(--fast) var(--ease), opacity var(--fast) var(--ease); }
 .ob-btn:active { transform: scale(.97); }
 .ob-btn--primary { flex: 1;
-  background: color-mix(in srgb, var(--brand) 52%, transparent);
-  border: 1px solid color-mix(in srgb, #fff 45%, transparent);
-  color: #fff; text-shadow: 0 1px 1px rgba(49,46,129,.25);
-  box-shadow: 0 8px 24px rgba(79,70,229,.30), inset 0 1px 0 rgba(255,255,255,.4); }
+  background: color-mix(in srgb, var(--brand) 70%, transparent);
+  border: 1px solid color-mix(in srgb, #fff 40%, transparent);
+  color: #fff; text-shadow: 0 1px 2px rgba(49,46,129,.35);
+  box-shadow: 0 8px 24px rgba(79,70,229,.34), inset 0 1px 0 rgba(255,255,255,.4); }
 .ob-btn--primary:disabled { opacity: .45; box-shadow: none; }
 .ob-btn--ghost {
   background: color-mix(in srgb, var(--bg) 40%, transparent);
@@ -4160,7 +4164,7 @@ img { max-width: 100%; display: block; }
   color: var(--text-muted); }
 .ob-btn--ghost[hidden] { display: none; }
 @media (hover: hover) {
-  .ob-btn--primary:hover { background: color-mix(in srgb, var(--brand) 64%, transparent); }
+  .ob-btn--primary:hover { background: color-mix(in srgb, var(--brand) 80%, transparent); }
   .ob-chip:hover { border-color: var(--brand); }
 }
 
@@ -4243,6 +4247,28 @@ img { max-width: 100%; display: block; }
   border-top: 1px solid var(--border); background: var(--bg);
 }
 .feedback-offline-note a { color: var(--brand); font-weight: 600; }
+
+/* このアプリについて：著作権表示 */
+.about-legal { margin: 4px auto 18px; max-width: 520px; text-align: center; }
+.about-legal-text { font-size: 12px; color: var(--text-muted); line-height: 1.6; margin: 2px 0; }
+
+/* 応援(PayPay)カード：コンテキストパネルに控えめに表示・×で非表示 */
+.support-card { position: relative; text-align: center;
+  background: color-mix(in srgb, var(--brand) 10%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent);
+  border-radius: var(--radius-lg, 16px); padding: 16px 16px 18px; }
+.support-card-close { position: absolute; top: 8px; right: 10px;
+  width: 24px; height: 24px; border-radius: 50%; border: none;
+  background: transparent; color: var(--text-muted); font-size: 18px; line-height: 1; cursor: pointer; }
+.support-card-close:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.support-card-emoji { font-size: 26px; }
+.support-card-title { font-size: 15px; font-weight: 800; color: var(--text); margin-top: 4px; }
+.support-card-text { font-size: 12.5px; color: var(--text-muted); line-height: 1.6; margin: 6px 0 12px; }
+.support-card-btn { display: inline-block; padding: 9px 20px; border-radius: 999px;
+  background: var(--brand); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; border: none;
+  transition: filter var(--fast, .15s) var(--ease, ease), transform .1s ease; }
+.support-card-btn:hover { filter: brightness(1.06); }
+.support-card-btn:active { transform: scale(.96); }
 
 /* 手書きペンのカラーピッカー */
 .hw-picker-overlay {
