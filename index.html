@@ -14,7 +14,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css?v=10.16.41" />
+  <link rel="stylesheet" href="styles.css?v=10.16.42" />
   <title>WEEKY</title>
 </head>
 <body>
@@ -680,14 +680,12 @@
               <section class="settings-section hidden" data-cat="feedback">
                 <h3>不具合の報告</h3>
                 <p class="settings-hint">アプリの不具合・改善要望は、下のフォームから送れます。気づいたこと・困ったことを書いて送信してください。返信が必要な場合はメールアドレスの記入もお願いします。</p>
-                <div class="feedback-card">
-                  <span class="feedback-icon">🐞</span>
-                  <div class="feedback-body">
-                    <div class="feedback-title">不具合・要望フォーム</div>
-                    <div class="feedback-desc">Googleフォームが開きます（別タブ）</div>
-                  </div>
-                  <a class="feedback-btn" href="https://forms.gle/eUP5hhS6D4hyaQqy8" target="_blank" rel="noopener noreferrer">フォームを開く</a>
+                <div class="feedback-embed">
+                  <iframe class="feedback-iframe"
+                    src="https://docs.google.com/forms/d/e/1FAIpQLSccO9jzWK3UV3X7aiGeL69cF-zveV-Som5EuNKtAen25fPkVw/viewform?embedded=true"
+                    title="不具合・要望フォーム" loading="lazy" referrerpolicy="no-referrer">読み込んでいます…</iframe>
                 </div>
+                <p class="settings-hint feedback-offline-note">※ フォームの表示にはインターネット接続が必要です。うまく表示されないときは <a href="https://forms.gle/eUP5hhS6D4hyaQqy8" target="_blank" rel="noopener noreferrer">別タブでフォームを開く</a>。</p>
                 <p class="settings-hint">報告いただいた内容は今後の改善に活用させていただきます。</p>
               </section>
 
@@ -1174,6 +1172,6 @@
 
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/html2canvas.min.js"></script>
-<script src="app.js?v=10.16.41"></script>
+<script src="app.js?v=10.16.42"></script>
 </body>
 </html>
