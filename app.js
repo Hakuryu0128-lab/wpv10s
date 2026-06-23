@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.51';
+const APP_VERSION = '10.16.52';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -3407,15 +3407,22 @@ function renderRmRoster() {
   for (let num = 1; num <= rowCount; num++) {
     const st = activeSchoolStudents().find(s => s.className === state.rosterClass && s.number === num);
     const id = makeStudentId(state.activeSchoolId, year, grade, classNo, num);
+    const detailBtn = st
+      ? `<button class="rm-row-detail" type="button" data-sid="${escHtml(st.id)}" aria-label="${escHtml(st.name)}の詳細を編集" title="ふりがな・番号・QR・メモなどを編集">詳細</button>`
+      : '';
     rows += `
       <div class="rm-row${st ? ' filled' : ''}">
         <span class="rm-row-num">${num}</span>
         <input class="rm-row-name" data-num="${num}" value="${escHtml(st?.name || '')}" placeholder="${num}番" aria-label="${num}番の名前" />
+        ${detailBtn}
         <span class="rm-row-id">${escHtml(id)}</span>
       </div>`;
   }
 
   body.innerHTML = `<div class="rm-roster-list">${rows}</div>`;
+
+  body.querySelectorAll('.rm-row-detail').forEach(b =>
+    b.addEventListener('click', () => openStudentModal(b.dataset.sid)));
 
   body.querySelectorAll('.rm-row-name').forEach(inp => {
     inp.addEventListener('input', () => {
