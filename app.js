@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.50';
+const APP_VERSION = '10.16.51';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -1321,6 +1321,7 @@ function switchView(viewId) {
   if (navEl) { navEl.classList.add('active'); navEl.setAttribute('aria-current', 'page'); }
   state.activeView = viewId;
   document.body.dataset.view = viewId;
+  if (viewId === 'import') updateStorageMeter();   // バックアップ画面で保存容量を更新
 
   // 一部の広い画面（ToDo/名簿/出席/評価/進度）では右パネルを畳んで広く使う
   const wideViews = ['todo', 'roster', 'attendance', 'evaluation', 'progress'];
@@ -4451,7 +4452,6 @@ function showSettingsCategory(cat) {
     b.classList.toggle('active', b.dataset.cat === cat));
   document.querySelectorAll('.settings-section[data-cat]').forEach(sec =>
     sec.classList.toggle('hidden', sec.dataset.cat !== cat));
-  if (cat === 'about') updateStorageMeter();
   const actions = document.querySelector('.settings-actions');
   if (actions) actions.classList.toggle('hidden', !SETTINGS_SAVE_CATS.includes(cat));
 }
@@ -4529,22 +4529,49 @@ function _fmtBytes(b) {
   while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
   return (b >= 10 || i === 0 ? Math.round(b) : b.toFixed(1)) + ' ' + u[i];
 }
+function _localStorageBytes() {
+  let total = 0;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      const v = localStorage.getItem(k) || '';
+      total += (k.length + v.length) * 2;   // UTF-16 ≒ 2 bytes/char
+    }
+  } catch (e) {}
+  return total;
+}
+function _meterColor(pct) {
+  return pct >= 90 ? 'var(--danger, #dc2626)' : (pct >= 70 ? '#f59e0b' : 'var(--brand)');
+}
 async function updateStorageMeter() {
+  // テキスト（localStorage・約5MB上限）
+  const lsText = document.getElementById('lsMeterText');
+  const lsFill = document.getElementById('lsMeterFill');
+  if (lsText && lsFill) {
+    const used = _localStorageBytes();
+    const LIMIT = 5 * 1024 * 1024;
+    const pct = Math.min(100, Math.round(used / LIMIT * 100));
+    lsText.textContent = `${_fmtBytes(used)} / 5 MB（${pct}%）`;
+    lsFill.style.width = pct + '%';
+    lsFill.style.background = _meterColor(pct);
+  }
+  // 写真・手書き（IndexedDB含む全体・StorageManager）
   const text = document.getElementById('storageMeterText');
   const fill = document.getElementById('storageMeterFill');
-  if (!text || !fill) return;
-  try {
-    if (navigator.storage && navigator.storage.estimate) {
-      const est = await navigator.storage.estimate();
-      const usage = est.usage || 0, quota = est.quota || 0;
-      const pct = quota ? Math.min(100, Math.round(usage / quota * 100)) : 0;
-      text.textContent = `${_fmtBytes(usage)} / ${_fmtBytes(quota)}（${pct}%）`;
-      fill.style.width = pct + '%';
-      fill.style.background = pct >= 90 ? 'var(--danger, #dc2626)' : (pct >= 70 ? '#f59e0b' : 'var(--brand)');
-    } else {
-      text.textContent = 'この端末では取得できません';
-    }
-  } catch (e) { text.textContent = '取得に失敗しました'; }
+  if (text && fill) {
+    try {
+      if (navigator.storage && navigator.storage.estimate) {
+        const est = await navigator.storage.estimate();
+        const usage = est.usage || 0, quota = est.quota || 0;
+        const pct = quota ? Math.min(100, Math.round(usage / quota * 100)) : 0;
+        text.textContent = `${_fmtBytes(usage)} / ${_fmtBytes(quota)}（${pct}%）`;
+        fill.style.width = pct + '%';
+        fill.style.background = _meterColor(pct);
+      } else {
+        text.textContent = 'この端末では取得できません';
+      }
+    } catch (e) { text.textContent = '取得に失敗しました'; }
+  }
 }
 
 /* ── Teacher Password UI ─────────────────────────────────── */
@@ -5716,12 +5743,7 @@ function buildObSteps() {
         });
       } },
 
-    { key: 'done', nextLabel: '次へ', html: () => `
-        <div class="ob-emoji" data-ob-stagger>🎉</div>
-        <h1 class="ob-title" data-ob-stagger>準備完了！</h1>
-        <p class="ob-sub" data-ob-stagger>さっそく今週の週案を作ってみましょう。<br>いつでも設定から内容を変更できます。</p>` },
-
-    { key: 'consent', nextLabel: '同意して始める', html: () => `
+    { key: 'consent', nextLabel: '次へ', html: () => `
         <div class="ob-emoji" data-ob-stagger>📋</div>
         <h1 class="ob-title" data-ob-stagger>ご利用の前に</h1>
         <div class="ob-disclaimer" data-ob-stagger>
@@ -5740,6 +5762,11 @@ function buildObSteps() {
         sync();
         cb.addEventListener('change', sync);
       } },
+
+    { key: 'done', nextLabel: '週案をはじめる', html: () => `
+        <div class="ob-emoji" data-ob-stagger>🎉</div>
+        <h1 class="ob-title" data-ob-stagger>準備完了！</h1>
+        <p class="ob-sub" data-ob-stagger>さっそく今週の週案を作ってみましょう。<br>いつでも設定から内容を変更できます。</p>` },
   ];
 }
 
