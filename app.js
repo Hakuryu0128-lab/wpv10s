@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.56';
+const APP_VERSION = '10.16.57';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -4304,8 +4304,70 @@ function openReception(prefill) {
   setTimeout(() => document.getElementById('rcpScanInput')?.focus(), 60);
 }
 function closeReception() {
+  stopCamScan();
   document.getElementById('receptionOverlay').setAttribute('hidden', '');
   renderAttendance();
+}
+
+/* ── 受付：カメラでQR読み取り（BarcodeDetector優先＝高速、無ければjsQRフォールバック） ── */
+let _camStream = null, _camTimer = null, _camDetector = null, _camCooldown = 0;
+async function startCamScan() {
+  const video = document.getElementById('rcpCamVideo');
+  const wrap = document.getElementById('rcpCam');
+  const btn = document.getElementById('rcpCamBtn');
+  if (!video || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    rcpFlash('この端末ではカメラを使えません', true); return;
+  }
+  try {
+    _camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+  } catch (e) { rcpFlash('カメラを起動できませんでした（カメラの許可が必要です）', true); return; }
+  video.srcObject = _camStream;
+  try { await video.play(); } catch (e) {}
+  if (wrap) wrap.hidden = false;
+  if (btn) btn.hidden = true;
+  _camDetector = null;
+  if ('BarcodeDetector' in window) {
+    try { _camDetector = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { _camDetector = null; }
+  }
+  clearTimeout(_camTimer);
+  _camTick();
+}
+async function _camTick() {
+  if (!_camStream) return;
+  const video = document.getElementById('rcpCamVideo');
+  const popupOpen = !document.getElementById('forgotModalBackdrop')?.hasAttribute('hidden');
+  if (video && video.readyState >= 2 && Date.now() >= _camCooldown && !popupOpen) {
+    let text = null;
+    try {
+      if (_camDetector) {
+        const codes = await _camDetector.detect(video);
+        if (codes && codes.length) text = codes[0].rawValue;
+      } else if (window.jsQR) {
+        const c = document.getElementById('rcpCamCanvas');
+        const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
+        const w = 400, h = Math.max(1, Math.round(400 * vh / vw));
+        c.width = w; c.height = h;
+        const ctx = c.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(video, 0, 0, w, h);
+        const img = ctx.getImageData(0, 0, w, h);
+        const r = window.jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' });
+        if (r && r.data) text = r.data;
+      }
+    } catch (e) {}
+    if (text) {
+      _camCooldown = Date.now() + 1800;   // 同じQRの連続読み取り防止
+      const input = document.getElementById('rcpScanInput');
+      if (input) { input.value = String(text).trim(); handleRcpScan(); }
+    }
+  }
+  _camTimer = setTimeout(_camTick, 90);   // 約11fps（軽量＆高速）
+}
+function stopCamScan() {
+  clearTimeout(_camTimer); _camTimer = null;
+  if (_camStream) { try { _camStream.getTracks().forEach(t => t.stop()); } catch (e) {} _camStream = null; }
+  const video = document.getElementById('rcpCamVideo'); if (video) video.srcObject = null;
+  const wrap = document.getElementById('rcpCam'); if (wrap) wrap.hidden = true;
+  const btn = document.getElementById('rcpCamBtn'); if (btn) btn.hidden = false;
 }
 
 /* find a student in the current reception class by QR-id or 出席番号 */
@@ -6228,6 +6290,8 @@ function bindEvents() {
   q('startReceptionBtn')?.addEventListener('click', () => openReception());
   q('rcpClose')?.addEventListener('click', closeReception);
   q('rcpScanInput')?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); handleRcpScan(); } });
+  q('rcpCamBtn')?.addEventListener('click', startCamScan);
+  q('rcpCamStop')?.addEventListener('click', stopCamScan);
   ['rcpDate','rcpPeriod','rcpClass'].forEach(id => q(id)?.addEventListener('change', renderReceptionLists));
   // 受付中に学校を切り替える → その学校の学級に入れ替えて再表示
   q('rcpSchool')?.addEventListener('change', e => {

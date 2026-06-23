@@ -2257,6 +2257,29 @@ img { max-width: 100%; display: block; }
 .rcp-scan-input::placeholder { color: var(--gray-300); letter-spacing: .1em; }
 .rcp-scan-input:focus { outline: none; box-shadow: 0 0 0 5px var(--student-light); }
 .rcp-scan-hint { font-size: 13px; color: var(--gray-500); line-height: 1.5; text-align: center; min-height: 20px; }
+/* 受付：カメラQR読み取り */
+.rcp-cam-btn {
+  padding: 12px 22px; border-radius: 999px; border: 2px solid var(--student);
+  background: var(--bg); color: var(--student); font-size: 15px; font-weight: 800; cursor: pointer;
+  transition: background var(--fast), transform .1s ease;
+}
+.rcp-cam-btn:hover { background: var(--student-light, color-mix(in srgb, var(--student) 12%, var(--bg))); }
+.rcp-cam-btn:active { transform: scale(.96); }
+.rcp-cam[hidden] { display: none; }
+.rcp-cam { position: relative; width: min(420px, 100%); display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.rcp-cam video {
+  width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 18px;
+  background: #000; border: 2px solid color-mix(in srgb, var(--student) 30%, transparent);
+}
+.rcp-cam-frame {
+  position: absolute; left: 50%; top: calc(50% - 26px); transform: translate(-50%, -50%);
+  width: 56%; aspect-ratio: 1; border: 3px solid rgba(255,255,255,.9);
+  border-radius: 16px; box-shadow: 0 0 0 2000px rgba(0,0,0,.18); pointer-events: none;
+}
+.rcp-cam-stop {
+  padding: 10px 20px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--text-muted); font-size: 14px; font-weight: 700; cursor: pointer;
+}
 @media (prefers-reduced-motion: reduce) {
   .rcp-scan-pulse::before, .rcp-scan-pulse::after, .rcp-scan-icon, .rcp-scan-big { animation: none; }
 }
@@ -2563,7 +2586,7 @@ img { max-width: 100%; display: block; }
   background: color-mix(in srgb, var(--brand) 14%, var(--bg));
   color: var(--brand-dark); font-weight: 700;
 }
-.settings-detail { flex: 1; overflow-y: auto; padding: 28px 32px; max-width: 760px; }
+.settings-detail { flex: 1; overflow-y: auto; padding: 28px 32px; max-width: 760px; margin-inline: auto; }
 .settings-sections { display: flex; flex-direction: column; gap: 24px; }
 .settings-section {
   background: var(--bg);

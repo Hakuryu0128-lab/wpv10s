@@ -15,7 +15,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css?v=10.16.56" />
+  <link rel="stylesheet" href="styles.css?v=10.16.57" />
   <title>WEEKY</title>
 </head>
 <body>
@@ -1141,6 +1141,13 @@
       <div class="rcp-scan-big">QRコードを読み取ってください</div>
       <input type="text" id="rcpScanInput" class="rcp-scan-input" placeholder="生徒ID" autocomplete="off" inputmode="numeric" aria-label="生徒ID" />
       <div class="rcp-scan-hint" id="rcpScanHint">外付けリーダーをかざすか、生徒IDを入力して Enter</div>
+      <button class="rcp-cam-btn" id="rcpCamBtn" type="button">📷 カメラで読み取る</button>
+      <div class="rcp-cam" id="rcpCam" hidden>
+        <video id="rcpCamVideo" playsinline muted></video>
+        <div class="rcp-cam-frame" aria-hidden="true"></div>
+        <button class="rcp-cam-stop" id="rcpCamStop" type="button">カメラを止める</button>
+      </div>
+      <canvas id="rcpCamCanvas" hidden></canvas>
     </div>
     <!-- 右：名簿（受付済み／未受付）。修正は先生のみ -->
     <aside class="rcp-side">
@@ -1274,6 +1281,7 @@
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/html2canvas.min.js"></script>
 <script async src="https://tally.so/widgets/embed.js"></script>
-<script src="app.js?v=10.16.56"></script>
+<script async src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="app.js?v=10.16.57"></script>
 </body>
 </html>
