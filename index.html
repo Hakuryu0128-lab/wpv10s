@@ -15,7 +15,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css?v=10.16.49" />
+  <link rel="stylesheet" href="styles.css?v=10.16.50" />
   <title>WEEKY</title>
 </head>
 <body>
@@ -761,6 +761,15 @@
                   <p class="settings-hint">授業記録・週案管理アプリ</p>
                 </div>
 
+                <div class="storage-meter" id="storageMeter">
+                  <div class="storage-meter-head">
+                    <span>保存容量（写真・手書きなど）</span>
+                    <span id="storageMeterText">—</span>
+                  </div>
+                  <div class="storage-meter-bar"><span id="storageMeterFill"></span></div>
+                  <p class="settings-hint">写真・手書き画像はこの容量を使います（端末・ブラウザが割り当てる大きめの枠）。テキストデータ（週案・名簿など）は別枠の約5MBです。いっぱいに近づいたら、バックアップしてから不要な写真を整理してください。</p>
+                </div>
+
                 <div class="about-legal">
                   <p class="about-legal-text">© 2026 WEEKY</p>
                   <p class="about-legal-text">本アプリおよびその内容（コード・データ・デザインを含む）の無断転載・無断複製・無断持ち出し（再配布）を禁止します。</p>
@@ -1251,6 +1260,6 @@
 
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/html2canvas.min.js"></script>
-<script src="app.js?v=10.16.49"></script>
+<script src="app.js?v=10.16.50"></script>
 </body>
 </html>

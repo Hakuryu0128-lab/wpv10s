@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.49';
+const APP_VERSION = '10.16.50';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -4451,6 +4451,7 @@ function showSettingsCategory(cat) {
     b.classList.toggle('active', b.dataset.cat === cat));
   document.querySelectorAll('.settings-section[data-cat]').forEach(sec =>
     sec.classList.toggle('hidden', sec.dataset.cat !== cat));
+  if (cat === 'about') updateStorageMeter();
   const actions = document.querySelector('.settings-actions');
   if (actions) actions.classList.toggle('hidden', !SETTINGS_SAVE_CATS.includes(cat));
 }
@@ -4519,6 +4520,31 @@ function saveSettings() {
   save();
   renderWeekGrid();
   showToast('設定を保存しました');
+}
+
+/* ── 保存容量メーター（主に写真＝IndexedDB側） ──────────────── */
+function _fmtBytes(b) {
+  if (!b || b < 0) return '0 B';
+  const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0;
+  while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+  return (b >= 10 || i === 0 ? Math.round(b) : b.toFixed(1)) + ' ' + u[i];
+}
+async function updateStorageMeter() {
+  const text = document.getElementById('storageMeterText');
+  const fill = document.getElementById('storageMeterFill');
+  if (!text || !fill) return;
+  try {
+    if (navigator.storage && navigator.storage.estimate) {
+      const est = await navigator.storage.estimate();
+      const usage = est.usage || 0, quota = est.quota || 0;
+      const pct = quota ? Math.min(100, Math.round(usage / quota * 100)) : 0;
+      text.textContent = `${_fmtBytes(usage)} / ${_fmtBytes(quota)}（${pct}%）`;
+      fill.style.width = pct + '%';
+      fill.style.background = pct >= 90 ? 'var(--danger, #dc2626)' : (pct >= 70 ? '#f59e0b' : 'var(--brand)');
+    } else {
+      text.textContent = 'この端末では取得できません';
+    }
+  } catch (e) { text.textContent = '取得に失敗しました'; }
 }
 
 /* ── Teacher Password UI ─────────────────────────────────── */
@@ -5690,10 +5716,30 @@ function buildObSteps() {
         });
       } },
 
-    { key: 'done', nextLabel: '週案をはじめる', html: () => `
+    { key: 'done', nextLabel: '次へ', html: () => `
         <div class="ob-emoji" data-ob-stagger>🎉</div>
         <h1 class="ob-title" data-ob-stagger>準備完了！</h1>
         <p class="ob-sub" data-ob-stagger>さっそく今週の週案を作ってみましょう。<br>いつでも設定から内容を変更できます。</p>` },
+
+    { key: 'consent', nextLabel: '同意して始める', html: () => `
+        <div class="ob-emoji" data-ob-stagger>📋</div>
+        <h1 class="ob-title" data-ob-stagger>ご利用の前に</h1>
+        <div class="ob-disclaimer" data-ob-stagger>
+          <p>このアプリは個人が制作したものです。<strong>万一データが消失しても、作者は責任を負えません。</strong></p>
+          <p>児童・生徒の<strong>個人情報の取り扱いには十分ご注意ください。</strong>データは端末内のみに保存され、外部へ送信されることはありません。</p>
+          <p>万一に備え、<strong>定期的なバックアップを必ず行ってください。</strong></p>
+        </div>
+        <label class="ob-agree" data-ob-stagger>
+          <input type="checkbox" id="obAgree" />
+          <span>上記に同意します</span>
+        </label>`,
+      mount(slide) {
+        const cb = slide.querySelector('#obAgree');
+        const next = document.getElementById('obNext');
+        const sync = () => { next.disabled = !cb.checked; };
+        sync();
+        cb.addEventListener('change', sync);
+      } },
   ];
 }
 
@@ -5723,6 +5769,7 @@ function renderObStep(direction) {
   slide.className = 'ob-slide';
   slide.innerHTML = `<div class="ob-slide-inner">${step.html()}</div>`;
   stage.appendChild(slide);
+  document.getElementById('obNext').disabled = false;   // 同意ゲート等を毎ステップでリセット
   if (step.mount) step.mount(slide);
 
   slide.animate(

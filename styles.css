@@ -4315,6 +4315,20 @@ img { max-width: 100%; display: block; }
 .about-legal { margin: 4px auto 18px; max-width: 520px; text-align: center; }
 .about-legal-text { font-size: 12px; color: var(--text-muted); line-height: 1.6; margin: 2px 0; }
 
+/* 保存容量メーター */
+.storage-meter { margin: 6px auto 18px; max-width: 520px; }
+.storage-meter-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
+.storage-meter-head > span:last-child { font-weight: 700; color: var(--text); white-space: nowrap; }
+.storage-meter-bar { height: 9px; border-radius: 999px; background: var(--bg-subtle); overflow: hidden; }
+.storage-meter-bar > span { display: block; height: 100%; width: 0; background: var(--brand); border-radius: 999px; transition: width .45s ease; }
+
+/* オンボーディング：免責・同意ステップ */
+.ob-disclaimer { text-align: left; max-width: 380px; margin: 0 auto 18px; font-size: 13.5px; line-height: 1.75; color: var(--text-muted); }
+.ob-disclaimer p { margin: 0 0 10px; }
+.ob-disclaimer strong { color: var(--text); }
+.ob-agree { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-size: 15px; font-weight: 700; color: var(--text); padding: 8px 4px; }
+.ob-agree input { width: 22px; height: 22px; accent-color: var(--brand); }
+
 /* 応援(PayPay)カード：コンテキストパネルに控えめに表示・×で非表示 */
 .support-card { position: relative; text-align: center;
   background: color-mix(in srgb, var(--brand) 10%, var(--bg));
