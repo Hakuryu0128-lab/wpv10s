@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.52';
+const APP_VERSION = '10.16.53';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -1710,7 +1710,7 @@ function setMode(mode) {
 
 /* ── Inline handwriting (in the lesson modal right column) ── */
 let _lmHwCtx = null, _lmHwDrawing = false, _lmHwTool = 'pen',
-    _lmHwColor = '#1a1a1a', _lmHwSize = 3, _lmHwUndo = [];
+    _lmHwColor = '#1a1a1a', _lmHwSize = 3, _lmHwUndo = [], _lmHwRedo = [];
 
 function initLmHwCanvas() {
   const canvas = document.getElementById('lmHwCanvas');
@@ -1732,7 +1732,7 @@ function initLmHwCanvas() {
   _lmHwCtx.setTransform(dpr, 0, 0, dpr, 0, 0); // 1 unit = 1 CSS px
   _lmHwCtx.fillStyle = '#ffffff';
   _lmHwCtx.fillRect(0, 0, w, h);
-  _lmHwUndo = [];
+  _lmHwUndo = []; _lmHwRedo = [];
   lmHwLoadPage();
   updateLmHwPageInfo();
 }
@@ -1782,6 +1782,7 @@ function lmHwDown(e) {
   _lmHwDrawing = true;
   _lmHwUndo.push(_lmHwCtx.getImageData(0, 0, _lmHwCtx.canvas.width, _lmHwCtx.canvas.height));
   if (_lmHwUndo.length > 20) _lmHwUndo.shift();
+  _lmHwRedo.length = 0;
 
   _lmHwCtx.globalCompositeOperation = _lmHwTool === 'eraser' ? 'destination-out' : 'source-over';
   _lmHwCtx.strokeStyle = _lmHwColor;
@@ -1864,12 +1865,21 @@ function setupLmHwToolbar() {
   q('hwColorInput')?.addEventListener('input', e => applyHwPickerColor(e.target.value));
   q('lmHwUndo')?.addEventListener('click', () => {
     if (!_lmHwUndo.length || !_lmHwCtx) return;
+    _lmHwRedo.push(_lmHwCtx.getImageData(0, 0, _lmHwCtx.canvas.width, _lmHwCtx.canvas.height));
+    if (_lmHwRedo.length > 20) _lmHwRedo.shift();
     _lmHwCtx.putImageData(_lmHwUndo.pop(), 0, 0); lmHwSavePage();
+  });
+  q('lmHwRedo')?.addEventListener('click', () => {
+    if (!_lmHwRedo.length || !_lmHwCtx) return;
+    _lmHwUndo.push(_lmHwCtx.getImageData(0, 0, _lmHwCtx.canvas.width, _lmHwCtx.canvas.height));
+    if (_lmHwUndo.length > 20) _lmHwUndo.shift();
+    _lmHwCtx.putImageData(_lmHwRedo.pop(), 0, 0); lmHwSavePage();
   });
   q('lmHwClear')?.addEventListener('click', async () => {
     if (!_lmHwCtx) return;
     if (!await customConfirm('このページを消去しますか？')) return;
     _lmHwUndo.push(_lmHwCtx.getImageData(0,0,_lmHwCtx.canvas.width,_lmHwCtx.canvas.height));
+    _lmHwRedo.length = 0;
     _lmHwCtx.fillStyle = '#fff'; _lmHwCtx.fillRect(0,0,_lmHwCtx.canvas.width,_lmHwCtx.canvas.height);
     lmHwSavePage();
   });
@@ -2143,6 +2153,7 @@ let _fsHwTool   = 'pen';
 let _fsHwSize   = 3;
 let _fsHwColor  = '#1a1a1a';
 let _fsHwUndo   = [];
+let _fsHwRedo   = [];
 let _fsHwPage   = 0;
 
 /* ── 手書きペンの色（カスタム可・通常4色／全画面6色・先頭4色は共通） ── */
@@ -2272,7 +2283,7 @@ function initFsHwCanvas() {
   _fsHwCtx.setTransform(dpr, 0, 0, dpr, 0, 0); // 1 unit = 1 CSS px
   _fsHwCtx.fillStyle = '#ffffff';
   _fsHwCtx.fillRect(0, 0, w, h);
-  _fsHwUndo = [];
+  _fsHwUndo = []; _fsHwRedo = [];
   loadFsHwPage();
 
   if (!_fsHwBound) {
@@ -2334,6 +2345,7 @@ function fsHwDown(e) {
   _fsHwDrawing = true;
   _fsHwUndo.push(_fsHwCtx.getImageData(0, 0, _fsHwCtx.canvas.width, _fsHwCtx.canvas.height));
   if (_fsHwUndo.length > 30) _fsHwUndo.shift();
+  _fsHwRedo.length = 0;
 
   _fsHwCtx.globalCompositeOperation = _fsHwTool === 'eraser' ? 'destination-out' : 'source-over';
   _fsHwCtx.strokeStyle = _fsHwColor;
@@ -2378,13 +2390,24 @@ function fsHwUp(e) {
 
 function fsHwUndo() {
   if (!_fsHwUndo.length || !_fsHwCtx) return;
+  _fsHwRedo.push(_fsHwCtx.getImageData(0, 0, _fsHwCtx.canvas.width, _fsHwCtx.canvas.height));
+  if (_fsHwRedo.length > 30) _fsHwRedo.shift();
   _fsHwCtx.putImageData(_fsHwUndo.pop(), 0, 0);
+  saveFsHwPage();
+}
+
+function fsHwRedo() {
+  if (!_fsHwRedo.length || !_fsHwCtx) return;
+  _fsHwUndo.push(_fsHwCtx.getImageData(0, 0, _fsHwCtx.canvas.width, _fsHwCtx.canvas.height));
+  if (_fsHwUndo.length > 30) _fsHwUndo.shift();
+  _fsHwCtx.putImageData(_fsHwRedo.pop(), 0, 0);
   saveFsHwPage();
 }
 
 function fsHwClear() {
   if (!_fsHwCtx) return;
   _fsHwUndo.push(_fsHwCtx.getImageData(0, 0, _fsHwCtx.canvas.width, _fsHwCtx.canvas.height));
+  _fsHwRedo.length = 0;
   _fsHwCtx.fillStyle = '#ffffff';
   _fsHwCtx.fillRect(0, 0, _fsHwCtx.canvas.width, _fsHwCtx.canvas.height);
   saveFsHwPage();
@@ -2418,6 +2441,7 @@ function setupFsHwToolbar() {
 
   // Undo
   q('hwUndoBtn')?.addEventListener('click', fsHwUndo);
+  q('hwRedoBtn')?.addEventListener('click', fsHwRedo);
 
   // Clear page
   q('hwClearPageBtn')?.addEventListener('click', async () => {
@@ -2483,9 +2507,6 @@ function renderTodoView() {
 function renderTodoTagOptions() {
   const tags = [...new Set(state.todos.flatMap(t => t.tags || []))].sort((a,b)=>a.localeCompare(b,'ja'));
 
-  const dl = document.getElementById('todoTagList');
-  if (dl) dl.innerHTML = tags.map(t => `<option value="${escHtml(t)}"></option>`).join('');
-
   // tappable chips (iPad-friendly tag selection)
   const picker = document.getElementById('todoTagPicker');
   if (!picker) return;
@@ -2504,6 +2525,49 @@ function renderTodoTagOptions() {
       document.getElementById('todoComposeText')?.focus();
     });
   });
+}
+
+/* タグ入力欄の全表示プルダウン。ネイティブdatalistは入力値でフィルタされ
+   「選択中だと他タグが出ない」ため、現在値に関係なく全タグを出す自前メニュー。 */
+function toggleTodoTagMenu() {
+  let menu = document.getElementById('todoTagMenu');
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.id = 'todoTagMenu';
+    menu.className = 'todo-tagmenu';
+    menu.hidden = true;
+    document.body.appendChild(menu);
+    document.addEventListener('click', e => {
+      if (menu.hidden) return;
+      if (e.target.closest('#todoTagMenu') || e.target.closest('#todoTagCaret')) return;
+      menu.hidden = true;
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') menu.hidden = true; });
+  }
+  if (!menu.hidden) { menu.hidden = true; return; }
+  const tags = [...new Set(state.todos.flatMap(t => t.tags || []))].sort((a, b) => a.localeCompare(b, 'ja'));
+  const tagEl = document.getElementById('todoComposeTag');
+  const cur = (tagEl?.value || '').trim();
+  if (!tags.length) {
+    menu.innerHTML = '<div class="todo-tagmenu-empty">タグはまだありません</div>';
+  } else {
+    menu.innerHTML = tags.map(t =>
+      `<button type="button" class="todo-tagmenu-item${cur === t ? ' active' : ''}" data-tag="${escHtml(t)}"><span class="todo-tagmenu-dot" style="background:${tagColor(t)}"></span>${escHtml(t)}</button>`
+    ).join('');
+    menu.querySelectorAll('.todo-tagmenu-item').forEach(b => b.addEventListener('click', () => {
+      if (tagEl) tagEl.value = (tagEl.value.trim() === b.dataset.tag) ? '' : b.dataset.tag;
+      menu.hidden = true;
+      renderTodoTagOptions();
+    }));
+  }
+  const anchor = document.getElementById('todoComposeTag');
+  if (anchor) {
+    const r = anchor.getBoundingClientRect();
+    menu.style.left = Math.round(r.left) + 'px';
+    menu.style.top = Math.round(r.bottom + 4) + 'px';
+    menu.style.minWidth = Math.round(r.width) + 'px';
+  }
+  menu.hidden = false;
 }
 
 function renderTodoBoard() {
@@ -6044,6 +6108,7 @@ function bindEvents() {
     e.preventDefault();
     composeAddTodo();
   });
+  q('todoTagCaret')?.addEventListener('click', toggleTodoTagMenu);
 
   /* ── Notes (2-pane editor) ── */
   q('addNoteBtn')?.addEventListener('click', addNote);
