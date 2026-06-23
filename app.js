@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.47';
+const APP_VERSION = '10.16.48';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -616,9 +616,12 @@ function _lockIsShowing() {
 
 function initLock() {
   const pad = _lockEl('lockPad');
-  if (pad) pad.addEventListener('click', e => {
+  // pointerdown を使う：素早い連打でも押した瞬間に反応する。
+  // （click だと preventDoubleTapZoom の touchend preventDefault に2回目以降を消されて反応が悪かった）
+  if (pad) pad.addEventListener('pointerdown', e => {
     const btn = e.target.closest('[data-k]');
     if (!btn) return;
+    e.preventDefault();   // 合成clickの二重発火・ダブルタップズーム・フォーカス移動を防ぐ
     const k = btn.dataset.k;
     if (k === 'del') _lockBackspace();
     else if (/^[0-9]$/.test(k)) _lockPush(k);
