@@ -15,7 +15,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css?v=10.16.55" />
+  <link rel="stylesheet" href="styles.css?v=10.16.56" />
   <title>WEEKY</title>
 </head>
 <body>
@@ -763,9 +763,10 @@
               </section>
 
               <section class="settings-section settings-section--feedback hidden" data-cat="feedback">
+                <h3>不具合の報告</h3>
                 <iframe class="feedback-iframe"
-                  src="https://tally.so/embed/EkArx2?alignLeft=1"
-                  title="不具合・要望フォーム" loading="lazy" referrerpolicy="no-referrer">読み込んでいます…</iframe>
+                  data-tally-src="https://tally.so/embed/EkArx2?dynamicHeight=1"
+                  title="不具合・要望フォーム" loading="lazy">読み込んでいます…</iframe>
                 <p class="settings-hint feedback-offline-note">※ 表示にはネット接続が必要です。出ないときは <a href="https://tally.so/r/EkArx2" target="_blank" rel="noopener noreferrer">別タブで開く</a>。</p>
               </section>
 
@@ -1272,6 +1273,7 @@
 
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/html2canvas.min.js"></script>
-<script src="app.js?v=10.16.55"></script>
+<script async src="https://tally.so/widgets/embed.js"></script>
+<script src="app.js?v=10.16.56"></script>
 </body>
 </html>

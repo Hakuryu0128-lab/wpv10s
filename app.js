@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.55';
+const APP_VERSION = '10.16.56';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -4523,6 +4523,7 @@ function showSettingsCategory(cat) {
     b.classList.toggle('active', b.dataset.cat === cat));
   document.querySelectorAll('.settings-section[data-cat]').forEach(sec =>
     sec.classList.toggle('hidden', sec.dataset.cat !== cat));
+  if (cat === 'feedback' && window.Tally) { try { Tally.loadEmbeds(); } catch (e) {} }
   const actions = document.querySelector('.settings-actions');
   if (actions) actions.classList.toggle('hidden', !SETTINGS_SAVE_CATS.includes(cat));
 }
