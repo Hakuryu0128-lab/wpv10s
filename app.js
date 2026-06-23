@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.46';
+const APP_VERSION = '10.16.47';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -110,6 +110,10 @@ const state = {
     weatherLat: null,
     weatherLon: null,
     weatherName: '東京',
+    lockEnabled: false,      // 画面ロックを使うか
+    lockPin: '',             // 設定中のPIN（数字文字列。''=未設定）
+    lockDigits: 4,           // 4 | 6
+    lockTimeoutMin: 5,       // 無操作タイムアウト（分）1|3|5|10|30
   },
   activeView: 'weekly',
   eventsYear: new Date().getFullYear(),
@@ -492,7 +496,195 @@ function initActivationGate() {
   input.addEventListener('keydown', e => { if (e.key === 'Enter') tryActivate(); });
 }
 
-/* Teacher lock / auto-lock removed */
+/* ── Screen Lock (PINパスコード＋テンキー) ───────────────── */
+const LOCK_TIMEOUT_OPTS = [1, 3, 5, 10, 30];
+let _lockIdleTimer = null;
+let _lockBuf = '';
+let _lockMode = 'verify';      // 'verify' | 'set1' | 'set2'
+let _lockSetFirst = '';
+
+function lockHasPin() { return !!(state.settings.lockEnabled && state.settings.lockPin); }
+function lockTargetLen() {
+  if (_lockMode === 'verify') return (state.settings.lockPin || '').length || (state.settings.lockDigits === 6 ? 6 : 4);
+  return state.settings.lockDigits === 6 ? 6 : 4;
+}
+function _lockEl(id) { return document.getElementById(id); }
+
+function renderLockDots() {
+  const wrap = _lockEl('lockDots');
+  if (!wrap) return;
+  const n = lockTargetLen();
+  wrap.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const d = document.createElement('span');
+    d.className = 'lock-dot' + (i < _lockBuf.length ? ' is-on' : '');
+    wrap.appendChild(d);
+  }
+}
+function _lockTitleText() {
+  if (_lockMode === 'set1') return '新しいパスコードを入力';
+  if (_lockMode === 'set2') return 'もう一度入力して確認';
+  return 'パスコードを入力';
+}
+function showLockScreen(mode) {
+  _lockMode = mode || 'verify';
+  _lockBuf = '';
+  if (_lockMode === 'set1') _lockSetFirst = '';
+  const ov = _lockEl('lockOverlay');
+  if (!ov) return;
+  _lockEl('lockTitle').textContent = _lockTitleText();
+  const sub = _lockEl('lockSub'); if (sub) sub.textContent = lockTargetLen() + '桁の数字';
+  const err = _lockEl('lockError'); if (err) err.hidden = true;
+  const cancel = _lockEl('lockCancel'); if (cancel) cancel.hidden = (_lockMode === 'verify');
+  renderLockDots();
+  ov.removeAttribute('hidden');
+  document.addEventListener('keydown', _lockKeyHandler, true);
+}
+function hideLockScreen() {
+  const ov = _lockEl('lockOverlay');
+  if (ov) ov.setAttribute('hidden', '');
+  document.removeEventListener('keydown', _lockKeyHandler, true);
+}
+function _lockShake(msg) {
+  const dots = _lockEl('lockDots');
+  const err = _lockEl('lockError');
+  if (err) { err.textContent = msg || 'パスコードが違います'; err.hidden = false; }
+  if (dots) { dots.classList.remove('shake'); void dots.offsetWidth; dots.classList.add('shake'); }
+  _lockBuf = '';
+  setTimeout(renderLockDots, 220);
+}
+function _lockPush(dgt) {
+  if (_lockBuf.length >= lockTargetLen()) return;
+  _lockBuf += dgt;
+  renderLockDots();
+  if (_lockBuf.length === lockTargetLen()) setTimeout(_lockSubmit, 140);
+}
+function _lockBackspace() { _lockBuf = _lockBuf.slice(0, -1); renderLockDots(); }
+function _lockSubmit() {
+  if (_lockBuf.length !== lockTargetLen()) return;
+  if (_lockMode === 'verify') {
+    if (_lockBuf === state.settings.lockPin) { hideLockScreen(); resetLockIdleTimer(); }
+    else _lockShake();
+  } else if (_lockMode === 'set1') {
+    _lockSetFirst = _lockBuf;
+    _lockMode = 'set2'; _lockBuf = '';
+    _lockEl('lockTitle').textContent = _lockTitleText();
+    _lockEl('lockError').hidden = true;
+    _lockEl('lockSub').textContent = lockTargetLen() + '桁の数字';
+    renderLockDots();
+  } else if (_lockMode === 'set2') {
+    if (_lockBuf === _lockSetFirst) {
+      state.settings.lockPin = _lockBuf;
+      state.settings.lockEnabled = true;
+      save();
+      hideLockScreen();
+      renderLockSettings();
+      showToast('パスコードを設定しました');
+      resetLockIdleTimer();
+    } else {
+      _lockMode = 'set1';
+      _lockEl('lockTitle').textContent = _lockTitleText();
+      _lockShake('一致しません。最初から入力してください');
+    }
+  }
+}
+function _lockKeyHandler(e) {
+  if (e.key >= '0' && e.key <= '9') { e.preventDefault(); _lockPush(e.key); }
+  else if (e.key === 'Backspace') { e.preventDefault(); _lockBackspace(); }
+  else if (e.key === 'Enter') { e.preventDefault(); _lockSubmit(); }
+  else if (e.key === 'Escape' && _lockMode !== 'verify') { e.preventDefault(); _lockCancelSet(); }
+}
+function _lockCancelSet() {
+  hideLockScreen();
+  if (!state.settings.lockPin) { state.settings.lockEnabled = false; save(); }
+  renderLockSettings();
+}
+
+function lockTimeoutMs() {
+  const m = LOCK_TIMEOUT_OPTS.includes(state.settings.lockTimeoutMin) ? state.settings.lockTimeoutMin : 5;
+  return m * 60_000;
+}
+function resetLockIdleTimer() {
+  clearTimeout(_lockIdleTimer);
+  if (!lockHasPin()) return;
+  _lockIdleTimer = setTimeout(() => { if (lockHasPin()) showLockScreen('verify'); }, lockTimeoutMs());
+}
+function _lockIsShowing() {
+  const ov = _lockEl('lockOverlay');
+  return ov && !ov.hasAttribute('hidden');
+}
+
+function initLock() {
+  const pad = _lockEl('lockPad');
+  if (pad) pad.addEventListener('click', e => {
+    const btn = e.target.closest('[data-k]');
+    if (!btn) return;
+    const k = btn.dataset.k;
+    if (k === 'del') _lockBackspace();
+    else if (/^[0-9]$/.test(k)) _lockPush(k);
+  });
+  const cancel = _lockEl('lockCancel');
+  if (cancel) cancel.addEventListener('click', _lockCancelSet);
+
+  ['pointerdown', 'keydown', 'touchstart'].forEach(ev =>
+    document.addEventListener(ev, () => { if (!_lockIsShowing()) resetLockIdleTimer(); }, { passive: true }));
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && lockHasPin() && !_lockIsShowing()) showLockScreen('verify');
+  });
+
+  initLockSettings();
+
+  if (lockHasPin()) showLockScreen('verify');
+  else resetLockIdleTimer();
+}
+
+function renderLockSettings() {
+  const enabled = !!state.settings.lockEnabled && !!state.settings.lockPin;
+  const enSeg = _lockEl('lockEnableSeg');
+  if (enSeg) enSeg.querySelectorAll('button').forEach(b => b.classList.toggle('is-on', (b.dataset.on === '1') === enabled));
+  const opts = _lockEl('lockOptions');
+  if (opts) opts.hidden = !enabled;
+  const dg = state.settings.lockDigits === 6 ? 6 : 4;
+  const dgSeg = _lockEl('lockDigitsSeg');
+  if (dgSeg) dgSeg.querySelectorAll('button').forEach(b => b.classList.toggle('is-on', parseInt(b.dataset.d, 10) === dg));
+  const tSel = _lockEl('lockTimeoutSel');
+  if (tSel) tSel.value = String(LOCK_TIMEOUT_OPTS.includes(state.settings.lockTimeoutMin) ? state.settings.lockTimeoutMin : 5);
+}
+function initLockSettings() {
+  const enSeg = _lockEl('lockEnableSeg');
+  if (enSeg) enSeg.addEventListener('click', e => {
+    const b = e.target.closest('button[data-on]'); if (!b) return;
+    const wantOn = b.dataset.on === '1';
+    if (wantOn) {
+      if (state.settings.lockPin) { state.settings.lockEnabled = true; save(); renderLockSettings(); }
+      else showLockScreen('set1');
+    } else {
+      state.settings.lockEnabled = false;
+      state.settings.lockPin = '';
+      save(); clearTimeout(_lockIdleTimer); renderLockSettings();
+      showToast('画面ロックをオフにしました');
+    }
+  });
+  const dgSeg = _lockEl('lockDigitsSeg');
+  if (dgSeg) dgSeg.addEventListener('click', e => {
+    const b = e.target.closest('button[data-d]'); if (!b) return;
+    const d = parseInt(b.dataset.d, 10);
+    if (d === state.settings.lockDigits && state.settings.lockPin) return;
+    state.settings.lockDigits = d;
+    state.settings.lockPin = '';
+    save();
+    showLockScreen('set1');
+  });
+  const tSel = _lockEl('lockTimeoutSel');
+  if (tSel) tSel.addEventListener('change', () => {
+    state.settings.lockTimeoutMin = parseInt(tSel.value, 10) || 5;
+    save(); resetLockIdleTimer();
+  });
+  const chg = _lockEl('changePinBtn');
+  if (chg) chg.addEventListener('click', () => showLockScreen('set1'));
+  renderLockSettings();
+}
 
 /* ── Clock ───────────────────────────────────────────────── */
 function updateClock() {
@@ -5601,6 +5793,9 @@ function startApp() {
   }, 60_000);
 
   bindEvents();
+
+  // 画面ロック（PIN）初期化：起動時ロック・無操作タイマー・設定UI
+  initLock();
 
   // 初回ユーザーにはセットアップウィザードを表示（既存ユーザーには出さない）
   maybeStartOnboarding();

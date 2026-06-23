@@ -15,7 +15,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css?v=10.16.46" />
+  <link rel="stylesheet" href="styles.css?v=10.16.47" />
   <title>WEEKY</title>
 </head>
 <body>
@@ -34,6 +34,35 @@
     <input type="text" id="activationInput" class="gate-input" placeholder="XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" />
     <button class="gate-btn" id="activateBtn">アクティベート</button>
     <p class="gate-error" id="activationError" hidden>コードが正しくありません</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCREEN LOCK (PINパスコード・テンキー)
+════════════════════════════════════════════════════════════ -->
+<div class="lock-overlay" id="lockOverlay" role="dialog" aria-modal="true" aria-label="画面ロック" hidden>
+  <div class="lock-bg" aria-hidden="true"></div>
+  <div class="lock-inner">
+    <div class="lock-emoji">🔒</div>
+    <div class="lock-title" id="lockTitle">パスコードを入力</div>
+    <div class="lock-sub" id="lockSub"></div>
+    <div class="lock-dots" id="lockDots"></div>
+    <p class="lock-error" id="lockError" hidden>パスコードが違います</p>
+    <div class="lock-pad" id="lockPad">
+      <button class="lock-key" data-k="1" type="button">1</button>
+      <button class="lock-key" data-k="2" type="button">2</button>
+      <button class="lock-key" data-k="3" type="button">3</button>
+      <button class="lock-key" data-k="4" type="button">4</button>
+      <button class="lock-key" data-k="5" type="button">5</button>
+      <button class="lock-key" data-k="6" type="button">6</button>
+      <button class="lock-key" data-k="7" type="button">7</button>
+      <button class="lock-key" data-k="8" type="button">8</button>
+      <button class="lock-key" data-k="9" type="button">9</button>
+      <span class="lock-key lock-key--ghost" aria-hidden="true"></span>
+      <button class="lock-key" data-k="0" type="button">0</button>
+      <button class="lock-key lock-key--del" data-k="del" type="button" aria-label="1文字消す">⌫</button>
+    </div>
+    <button class="lock-cancel" id="lockCancel" type="button" hidden>キャンセル</button>
   </div>
 </div>
 
@@ -588,6 +617,7 @@
               <button class="settings-nav-item" data-cat="anim">✨ アニメーション</button>
               <button class="settings-nav-item" data-cat="subjects">📚 教科</button>
               <button class="settings-nav-item" data-cat="classes">🏫 学級</button>
+              <button class="settings-nav-item" data-cat="lock">🔒 ロック</button>
               <button class="settings-nav-item" data-cat="support">💛 応援</button>
               <button class="settings-nav-item" data-cat="feedback">🐞 不具合の報告</button>
               <button class="settings-nav-item" data-cat="about">ℹ️ このアプリ</button>
@@ -661,6 +691,41 @@
                 <h3>学級リスト</h3>
                 <p class="settings-hint">学級は名簿に登録した生徒から自動で作成されます。</p>
                 <div class="classes-list" id="classesList"></div>
+              </section>
+
+              <section class="settings-section hidden" data-cat="lock">
+                <h3>画面ロック</h3>
+                <p class="settings-hint">一定時間操作がないときと、アプリを開いたときにパスコード（数字）で保護します。端末内だけで判定する簡易ロックです。<strong>パスコードを忘れると解除できない</strong>のでご注意ください（その場合はブラウザのサイトデータ削除でリセット＝データも消えます）。</p>
+                <div class="settings-row settings-row--toggle">
+                  <label>画面ロックを使う</label>
+                  <div class="ob-seg lock-seg" id="lockEnableSeg">
+                    <button type="button" data-on="0">オフ</button>
+                    <button type="button" data-on="1">オン</button>
+                  </div>
+                </div>
+                <div id="lockOptions" hidden>
+                  <div class="settings-row">
+                    <label>桁数</label>
+                    <div class="ob-seg lock-seg" id="lockDigitsSeg">
+                      <button type="button" data-d="4">4桁</button>
+                      <button type="button" data-d="6">6桁</button>
+                    </div>
+                  </div>
+                  <div class="settings-row">
+                    <label for="lockTimeoutSel">自動ロックまで</label>
+                    <select id="lockTimeoutSel" class="settings-input">
+                      <option value="1">1分</option>
+                      <option value="3">3分</option>
+                      <option value="5">5分</option>
+                      <option value="10">10分</option>
+                      <option value="30">30分</option>
+                    </select>
+                  </div>
+                  <div class="settings-row" style="border-bottom:none;">
+                    <label>パスコード</label>
+                    <button class="lock-change-btn" id="changePinBtn" type="button">変更する</button>
+                  </div>
+                </div>
               </section>
 
               <section class="settings-section hidden" data-cat="support">
@@ -1175,7 +1240,7 @@
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </span>
       <h2 class="dialog-title" id="dialogTitle"></h2>
-      <textarea id="dialogInput" class="form-textarea dialog-input" rows="2" hidden></textarea>
+      <input type="text" id="dialogInput" class="dialog-input" hidden />
     </div>
     <footer class="modal-footer dialog-footer">
       <button class="btn-ghost btn-lg dialog-btn" id="dialogCancelBtn">キャンセル</button>
@@ -1186,6 +1251,6 @@
 
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="vendor/html2canvas.min.js"></script>
-<script src="app.js?v=10.16.46"></script>
+<script src="app.js?v=10.16.47"></script>
 </body>
 </html>
