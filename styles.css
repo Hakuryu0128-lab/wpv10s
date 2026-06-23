@@ -3555,6 +3555,27 @@ img { max-width: 100%; display: block; }
 .lock-cancel { margin-top: 22px; background: transparent; border: none; color: rgba(255,255,255,.85);
   font-size: 15px; font-weight: 600; cursor: pointer; padding: 8px 16px; }
 .lock-cancel[hidden] { display: none; }
+/* 登場アニメ：背景ふわっと＋テンキーが左上→右下へパラパラ（animationDelayはJSで対角に設定） */
+@keyframes lockFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes lockKeyIn { from { opacity: 0; transform: scale(.5) translateY(8px); } to { opacity: 1; transform: none; } }
+.lock-overlay.anim .lock-bg { animation: lockFadeIn .42s ease both; }
+.lock-overlay.anim .lock-emoji,
+.lock-overlay.anim .lock-title,
+.lock-overlay.anim .lock-sub,
+.lock-overlay.anim .lock-dots,
+.lock-overlay.anim .lock-error,
+.lock-overlay.anim .lock-cancel { animation: lockFadeIn .5s ease both; }
+.lock-overlay.anim .lock-key { animation: lockKeyIn .34s cubic-bezier(.34,1.56,.64,1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .lock-overlay.anim .lock-bg,
+  .lock-overlay.anim .lock-emoji,
+  .lock-overlay.anim .lock-title,
+  .lock-overlay.anim .lock-sub,
+  .lock-overlay.anim .lock-dots,
+  .lock-overlay.anim .lock-error,
+  .lock-overlay.anim .lock-cancel,
+  .lock-overlay.anim .lock-key { animation: none; }
+}
 /* ロック設定 */
 .lock-seg button.is-on { background: var(--bg); color: var(--brand); box-shadow: 0 1px 4px rgba(0,0,0,.08); }
 .lock-change-btn { padding: 8px 18px; border-radius: 999px; border: 1px solid var(--border);

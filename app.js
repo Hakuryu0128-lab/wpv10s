@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.48';
+const APP_VERSION = '10.16.49';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -499,6 +499,7 @@ function initActivationGate() {
 /* ── Screen Lock (PINパスコード＋テンキー) ───────────────── */
 const LOCK_TIMEOUT_OPTS = [1, 3, 5, 10, 30];
 let _lockIdleTimer = null;
+let _lockAnimTimer = null;
 let _lockBuf = '';
 let _lockMode = 'verify';      // 'verify' | 'set1' | 'set2'
 let _lockSetFirst = '';
@@ -538,6 +539,14 @@ function showLockScreen(mode) {
   const cancel = _lockEl('lockCancel'); if (cancel) cancel.hidden = (_lockMode === 'verify');
   renderLockDots();
   ov.removeAttribute('hidden');
+  // 登場アニメ：背景ふわっと＋テンキーが左上→右下へパラパラ
+  ov.classList.remove('anim'); void ov.offsetWidth; ov.classList.add('anim');
+  ov.querySelectorAll('.lock-key').forEach((k, i) => {
+    const r = Math.floor(i / 3), c = i % 3;
+    k.style.animationDelay = (0.12 + (r + c) * 0.05) + 's';
+  });
+  clearTimeout(_lockAnimTimer);
+  _lockAnimTimer = setTimeout(() => ov.classList.remove('anim'), 850);
   document.addEventListener('keydown', _lockKeyHandler, true);
 }
 function hideLockScreen() {
@@ -563,7 +572,7 @@ function _lockBackspace() { _lockBuf = _lockBuf.slice(0, -1); renderLockDots(); 
 function _lockSubmit() {
   if (_lockBuf.length !== lockTargetLen()) return;
   if (_lockMode === 'verify') {
-    if (_lockBuf === state.settings.lockPin) { hideLockScreen(); resetLockIdleTimer(); }
+    if (_lockBuf === state.settings.lockPin) { hideLockScreen(); resetLockIdleTimer(); checkForUpdate(); }
     else _lockShake();
   } else if (_lockMode === 'set1') {
     _lockSetFirst = _lockBuf;
@@ -632,8 +641,9 @@ function initLock() {
   ['pointerdown', 'keydown', 'touchstart'].forEach(ev =>
     document.addEventListener(ev, () => { if (!_lockIsShowing()) resetLockIdleTimer(); }, { passive: true }));
 
+  // 他のアプリ/タブへ移った瞬間にロックし、戻ってきた時も必ずロック状態にする
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && lockHasPin() && !_lockIsShowing()) showLockScreen('verify');
+    if (lockHasPin() && !_lockIsShowing()) showLockScreen('verify');
   });
 
   initLockSettings();
@@ -5355,10 +5365,23 @@ function showBackupBanner(last) {
 function hideBackupBanner() { document.getElementById('backupBanner')?.remove(); }
 
 /* ── PWA + update notification ───────────────────────────── */
+let _swReg = null;
+let _lastUpdateCheck = 0;
+/* 新しいバージョンが出ていないか確認する（reg.update() で再取得→差分があれば updatefound 発火）。
+   呼びすぎ防止に20秒スロットル。ロック解除・復帰・定期で呼ぶ。 */
+function checkForUpdate() {
+  const now = Date.now();
+  if (now - _lastUpdateCheck < 20_000) return;
+  _lastUpdateCheck = now;
+  try { _swReg && _swReg.update(); } catch (e) {}
+}
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./service-worker.js').then(reg => {
-      // detect a new SW taking over → offer reload
+      _swReg = reg;
+      // 既に待機中の新SWがあれば即通知
+      if (reg.waiting && navigator.serviceWorker.controller) showUpdateBanner();
+      // 新しいSWを検出 → 再読込を促す
       reg.addEventListener('updatefound', () => {
         const nw = reg.installing;
         if (!nw) return;
@@ -5370,6 +5393,10 @@ if ('serviceWorker' in navigator) {
       });
     }).catch(() => {});
   });
+  // 復帰時・フォーカス時・定期的にこまめにチェック（ロック解除時は _lockSubmit からも呼ぶ）
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate(); });
+  window.addEventListener('focus', checkForUpdate);
+  setInterval(checkForUpdate, 3 * 60_000);  // 3分ごと
 }
 function showUpdateBanner() {
   if (document.getElementById('updateBanner')) return;
