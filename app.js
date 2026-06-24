@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.57';
+const APP_VERSION = '10.16.58';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -1737,20 +1737,42 @@ function initLmHwCanvas() {
   updateLmHwPageInfo();
 }
 
-function lmHwLoadPage() {
+/* Handwriting pages are stored in IndexedDB (same store as photos) keyed by an
+   "hw_*" id; state.lessons[*].hwPages holds the id (string) or null. Legacy
+   data that stored a data: URL inline is still resolved for backward compat. */
+async function hwResolve(ref) {
+  if (!ref) return null;
+  if (typeof ref === 'string' && ref.startsWith('data:')) return ref; // legacy inline
+  try { return await mediaGet(ref); } catch (_) { return null; }
+}
+function hwStoreId(pages, idx, dataURL) {
+  while (pages.length <= idx) pages.push(null);
+  const prev = pages[idx];
+  const id = (typeof prev === 'string' && prev.startsWith('hw_')) ? prev : ('hw_' + uid());
+  pages[idx] = id;
+  mediaPut(id, dataURL); // async write to IndexedDB (fire-and-forget, like photos)
+  return id;
+}
+
+async function lmHwLoadPage() {
   if (!_lmHwCtx) return;
   const canvas = _lmHwCtx.canvas;
   const dpr = canvas._dpr || 1;
   const lw = canvas.width / dpr, lh = canvas.height / dpr; // logical (CSS) size
   const lesson = state.lessons[currentLessonKey];
-  const dataURL = lesson?.hwPages?.[hwPageIndex];
+  const ref = lesson?.hwPages?.[hwPageIndex];
   _lmHwCtx.fillStyle = '#ffffff';
   _lmHwCtx.fillRect(0, 0, lw, lh);
-  if (dataURL) {
-    const img = new Image();
-    img.onload = () => _lmHwCtx.drawImage(img, 0, 0, lw, lh);
-    img.src = dataURL;
-  }
+  const wantKey = currentLessonKey, wantIdx = hwPageIndex;
+  const dataURL = await hwResolve(ref);
+  // page may have changed while awaiting IndexedDB
+  if (!dataURL || !_lmHwCtx || currentLessonKey !== wantKey || hwPageIndex !== wantIdx) return;
+  const img = new Image();
+  img.onload = () => {
+    if (_lmHwCtx && currentLessonKey === wantKey && hwPageIndex === wantIdx)
+      _lmHwCtx.drawImage(img, 0, 0, lw, lh);
+  };
+  img.src = dataURL;
 }
 
 function lmHwSavePage() {
@@ -1758,8 +1780,7 @@ function lmHwSavePage() {
   if (!state.lessons[currentLessonKey]) state.lessons[currentLessonKey] = {};
   if (!state.lessons[currentLessonKey].hwPages) state.lessons[currentLessonKey].hwPages = [];
   const pages = state.lessons[currentLessonKey].hwPages;
-  while (pages.length <= hwPageIndex) pages.push(null);
-  pages[hwPageIndex] = _lmHwCtx.canvas.toDataURL('image/png');
+  hwStoreId(pages, hwPageIndex, _lmHwCtx.canvas.toDataURL('image/png'));
   saveSoft();
 }
 
@@ -2300,20 +2321,24 @@ function initFsHwCanvas() {
   }
 }
 
-function loadFsHwPage() {
+async function loadFsHwPage() {
   if (!currentLessonKey || !_fsHwCtx) return;
   const canvas = _fsHwCtx.canvas;
   const dpr = canvas._dpr || 1;
   const lw = canvas.width / dpr, lh = canvas.height / dpr; // logical (CSS) size
   const lesson = state.lessons[currentLessonKey];
-  const dataURL = lesson?.hwPages?.[_fsHwPage];
+  const ref = lesson?.hwPages?.[_fsHwPage];
   _fsHwCtx.fillStyle = '#ffffff';
   _fsHwCtx.fillRect(0, 0, lw, lh);
-  if (dataURL) {
-    const img = new Image();
-    img.onload = () => _fsHwCtx.drawImage(img, 0, 0, lw, lh);
-    img.src = dataURL;
-  }
+  const wantKey = currentLessonKey, wantIdx = _fsHwPage;
+  const dataURL = await hwResolve(ref);
+  if (!dataURL || !_fsHwCtx || currentLessonKey !== wantKey || _fsHwPage !== wantIdx) return;
+  const img = new Image();
+  img.onload = () => {
+    if (_fsHwCtx && currentLessonKey === wantKey && _fsHwPage === wantIdx)
+      _fsHwCtx.drawImage(img, 0, 0, lw, lh);
+  };
+  img.src = dataURL;
 }
 
 /* line width: solid base, stylus pressure only adds a little (mirrors inline) */
@@ -2329,8 +2354,7 @@ function saveFsHwPage() {
   if (!state.lessons[currentLessonKey]) state.lessons[currentLessonKey] = {};
   if (!state.lessons[currentLessonKey].hwPages) state.lessons[currentLessonKey].hwPages = [];
   const pages = state.lessons[currentLessonKey].hwPages;
-  while (pages.length <= _fsHwPage) pages.push(null);
-  pages[_fsHwPage] = _fsHwCtx.canvas.toDataURL('image/png');
+  hwStoreId(pages, _fsHwPage, _fsHwCtx.canvas.toDataURL('image/png'));
   save();
   updateStats();
 }
@@ -5246,12 +5270,18 @@ async function detailCardHtmls() {
     (l.photos || []).map(async ph => { try { const src = await mediaGet(ph.id); if (src) photoSrc[ph.id] = src; } catch (_) {} })
   ));
 
+  // resolve handwriting pages (stored in IndexedDB by id) for embedding
+  const hwSrc = {};
+  await Promise.all(items.flatMap(({ l }) =>
+    (l.hwPages || []).filter(Boolean).map(async ref => { try { const src = await hwResolve(ref); if (src) hwSrc[ref] = src; } catch (_) {} })
+  ));
+
   return items.map(({ d, date, p, l }) => {
     const subj = getSubjectById(l.subjectId)?.name || '';
     const color = getSubjectColor(l.subjectId);
     const periodLabel = p === 'after' ? '放課後' : `${p}限`;
     const tags = (l.tags || []).map(t => `<span class="pd-tag">${escHtml(t)}</span>`).join('');
-    const hw = (l.hwPages || []).filter(Boolean).map(src => `<img src="${src}" alt="手書き">`).join('');
+    const hw = (l.hwPages || []).filter(Boolean).map(ref => hwSrc[ref] ? `<img src="${hwSrc[ref]}" alt="手書き">` : '').join('');
     const photos = (l.photos || []).map(ph => photoSrc[ph.id] ? `<img src="${photoSrc[ph.id]}" alt="写真">` : '').join('');
     const media = (hw || photos) ? `<div class="pd-media">${hw}${photos}</div>` : '';
     return `<div class="pd-card" style="border-left:5px solid ${color}">
