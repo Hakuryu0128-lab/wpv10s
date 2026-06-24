@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.59';
+const APP_VERSION = '10.16.60';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -398,6 +398,21 @@ async function mediaAll() {
 function setPhotoSrc(imgEl, photo) {
   if (photo.src) { imgEl.src = photo.src; return; }        // legacy inline dataURL
   mediaGet(photo.id).then(d => { if (d) imgEl.src = d; });
+}
+
+/* Ask the browser to keep our data persistent (exempt from automatic eviction
+   under storage pressure). Granted automatically for home-screen/installed apps
+   and high-engagement sites. Safe no-op where unsupported. Does NOT protect
+   against device loss/reset or the user clearing site data — backups still matter. */
+let _storagePersisted = false;
+async function requestPersistentStorage() {
+  try {
+    if (!navigator.storage || !navigator.storage.persist) return;
+    if (navigator.storage.persisted && await navigator.storage.persisted()) {
+      _storagePersisted = true; return;
+    }
+    _storagePersisted = await navigator.storage.persist();
+  } catch (_) { /* ignore */ }
 }
 
 /* Move any legacy inline-dataURL photos into IndexedDB, freeing localStorage */
@@ -4723,6 +4738,12 @@ async function updateStorageMeter() {
         const usage = est.usage || 0, quota = est.quota || 0;
         const pct = quota ? Math.min(100, Math.round(usage / quota * 100)) : 0;
         text.textContent = `${_fmtBytes(usage)} / ${_fmtBytes(quota)}（${pct}%）`;
+        if (navigator.storage.persisted) {
+          try {
+            const persisted = await navigator.storage.persisted();
+            text.textContent += persisted ? ' ・自動削除されない設定: 有効' : ' ・自動削除されない設定: 未確定';
+          } catch (_) {}
+        }
         fill.style.width = pct + '%';
         fill.style.background = _meterColor(pct);
       } else {
@@ -6034,6 +6055,7 @@ function startApp() {
   preventDoubleTapZoom();
   load();
   migratePhotosToIdb();   // move any legacy inline photos into IndexedDB
+  requestPersistentStorage();   // ask the browser not to auto-evict our data
   applyTheme(state.settings.theme || 'indigo');
   applyAppearance(state.settings.appearance || 'light');
   // 初回は switchView を通らないため body[data-view] が未設定→週ナビが隠れる。明示設定。
