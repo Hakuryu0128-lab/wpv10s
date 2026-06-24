@@ -129,6 +129,7 @@ img { max-width: 100%; display: block; }
     color-mix(in srgb, var(--brand) 30%, #131a2b),
     color-mix(in srgb, var(--brand) 16%, #0e1422));
   overflow: visible;   /* allow hover tooltips to escape to the right */
+  padding-bottom: env(safe-area-inset-bottom, 0px);   /* keep bottom items above the system bar */
   z-index: 200;
   /* top inset keeps the logo clear of the status bar; painted by the sidebar's
      own dark background so no white frame appears */
