@@ -3440,6 +3440,25 @@ img { max-width: 100%; display: block; }
   .photo-item-overlay { opacity: 0; }
 }
 
+/* ── 縦が短い画面：サイドバーを詰める／それでも入らなければスクロール ──
+   十分な高さがある通常時は一切変えない。pointer:coarse の min-height を上書き
+   するため、必ずこのブロックより後（下流）に置くこと。 */
+@media (max-height: 860px) {
+  .sidebar { overflow-y: auto; overflow-x: hidden; }   /* 収まらない時だけスクロール */
+  .sb-mark { height: 40px; margin-bottom: 2px; }
+  .sb-mark img { width: 28px; height: 28px; }
+  .sb-section-label { padding: 4px 0 1px; }
+  .nav-item { min-height: 38px; padding: 4px; gap: 2px; }
+  .nav-icon { width: 20px; height: 20px; }
+}
+@media (max-height: 680px) {
+  .sb-mark { height: 34px; }
+  .sb-section-label { display: none; }   /* グループ見出しを隠してさらに節約 */
+  .nav-item { min-height: 31px; padding: 3px; gap: 1px; }
+  .nav-icon { width: 18px; height: 18px; }
+  .nav-label { font-size: 7px; }
+}
+
 /* ═══════════════════════════════════════════════════════════
    COLOR THEMES
 ════════════════════════════════════════════════════════════ */

@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.61';
+const APP_VERSION = '10.16.62';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -5346,6 +5346,9 @@ function _pdfMakeHost() {
     #_pdfHost .pdf-page { width:${PDF_PAGE_W_PX}px; background:#fff; padding:0; }
     #_pdfHost .pd-grid { column-count:auto; display:grid; grid-template-columns:1fr 1fr; gap:10px; align-items:start; }
     #_pdfHost .pd-card { display:block; }
+    /* 詳細メモPDF：2コマ横並びのカードをA4ページ高さいっぱいに揃える（一定高さ） */
+    #_pdfHost .pd-grid--pairs { height:100%; align-items:stretch; }
+    #_pdfHost .pd-grid--pairs .pd-card { height:100%; overflow:hidden; }
   </style>`;
   document.body.appendChild(host);
   return host;
@@ -5361,7 +5364,7 @@ async function _pdfAddPage(pdf, pageEl, isFirst, opts = {}) {
   const centerV = !!opts.centerV;     // 縦方向も中央に置くか（週案表用）
   await _pdfWaitImgs(pageEl);
   // 固定高さを超えた分（放課後など）が切り取られないよう、実コンテンツの全高を取り込む
-  const fullH = Math.max(pageEl.scrollHeight, pageEl.offsetHeight);
+  const fullH = opts.fixedH || Math.max(pageEl.scrollHeight, pageEl.offsetHeight);
   const canvas = await window.html2canvas(pageEl, { scale: 2, backgroundColor: '#fff', useCORS: true, logging: false,
     width: PDF_PAGE_W_PX, height: fullH, windowWidth: PDF_PAGE_W_PX, windowHeight: fullH });
   const img = canvas.toDataURL('image/jpeg', 0.92);
@@ -5405,14 +5408,20 @@ async function exportPdf() {
         for (let i = 0, pageIndex = 0; i < cards.length; i += 2, pageIndex++) {
           const page = document.createElement('div');
           page.className = 'pdf-page';
+          page.style.height = PDF_PAGE_H_PX + 'px';   // A4横の用紙高さに固定
+          page.style.display = 'flex';
+          page.style.flexDirection = 'column';
+          page.style.overflow = 'hidden';
           if (pageIndex === 0) page.insertAdjacentHTML('beforeend', header);
           const grid = document.createElement('div');
           grid.className = 'pd-grid pd-grid--pairs';
+          grid.style.flex = '1 1 auto';
+          grid.style.minHeight = '0';
           grid.insertAdjacentHTML('beforeend', cards[i]);
           if (cards[i + 1]) grid.insertAdjacentHTML('beforeend', cards[i + 1]);
           page.appendChild(grid);
           host.appendChild(page);
-          await _pdfAddPage(pdf, page, pageIndex === 0);
+          await _pdfAddPage(pdf, page, pageIndex === 0, { fixedH: PDF_PAGE_H_PX });
         }
       }
     }
