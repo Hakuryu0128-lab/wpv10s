@@ -177,7 +177,7 @@ img { max-width: 100%; display: block; }
   padding: 7px 4px;
   border: none;
   background: none;
-  color: rgba(255,255,255,.48);
+  color: rgba(255,255,255,.62);
   font-size: 7.5px;
   font-weight: 600;
   letter-spacing: .3px;
@@ -206,7 +206,7 @@ img { max-width: 100%; display: block; }
 }
 
 /* Student items: emerald accent */
-.nav-item--student { color: rgba(255,255,255,.4); }
+.nav-item--student { color: rgba(255,255,255,.58); }
 .nav-item--student:hover { color: rgba(16,185,129,.9); background: rgba(16,185,129,.08); }
 .nav-item--student.active {
   color: #34D399;
@@ -215,7 +215,7 @@ img { max-width: 100%; display: block; }
 .nav-item--student.active::before { background: #10B981; }
 
 .nav-icon {
-  width: 24px; height: 24px;
+  width: 28px; height: 28px;
   flex-shrink: 0;
   transition: transform var(--fast) var(--ease);
 }
@@ -3449,13 +3449,13 @@ img { max-width: 100%; display: block; }
   .sb-mark img { width: 28px; height: 28px; }
   .sb-section-label { padding: 4px 0 1px; }
   .nav-item { min-height: 38px; padding: 4px; gap: 2px; }
-  .nav-icon { width: 20px; height: 20px; }
+  .nav-icon { width: 24px; height: 24px; }
 }
 @media (max-height: 680px) {
   .sb-mark { height: 34px; }
   .sb-section-label { display: none; }   /* グループ見出しを隠してさらに節約 */
   .nav-item { min-height: 31px; padding: 3px; gap: 1px; }
-  .nav-icon { width: 18px; height: 18px; }
+  .nav-icon { width: 21px; height: 21px; }
   .nav-label { font-size: 7px; }
 }
 
