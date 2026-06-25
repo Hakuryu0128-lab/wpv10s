@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.67';
+const APP_VERSION = '10.16.68';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -4401,6 +4401,7 @@ function closeReception() {
 
 /* ── 受付：カメラでQR読み取り（BarcodeDetector優先＝高速、無ければjsQRフォールバック） ── */
 let _camStream = null, _camTimer = null, _camDetector = null, _camCooldown = 0;
+let _camFacing = 'environment';   // 'environment'=背面 / 'user'=前面
 async function startCamScan() {
   const video = document.getElementById('rcpCamVideo');
   const wrap = document.getElementById('rcpCam');
@@ -4408,10 +4409,12 @@ async function startCamScan() {
   if (!video || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     rcpFlash('この端末ではカメラを使えません', true); return;
   }
+  _camFacing = 'environment';
   try {
-    _camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    _camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: _camFacing }, audio: false });
   } catch (e) { rcpFlash('カメラを起動できませんでした（カメラの許可が必要です）', true); return; }
   video.srcObject = _camStream;
+  video.style.transform = 'none';
   try { await video.play(); } catch (e) {}
   if (wrap) wrap.hidden = false;
   if (btn) btn.hidden = true;
@@ -4421,6 +4424,21 @@ async function startCamScan() {
   }
   clearTimeout(_camTimer);
   _camTick();
+}
+/* 前面／背面カメラの切り替え（許可は取得済みなので再プロンプトは出ない） */
+async function flipCamScan() {
+  if (!_camStream || !navigator.mediaDevices) return;
+  _camFacing = _camFacing === 'environment' ? 'user' : 'environment';
+  try { _camStream.getTracks().forEach(t => t.stop()); } catch (e) {}
+  try {
+    _camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: _camFacing }, audio: false });
+  } catch (e) { rcpFlash('カメラを切り替えられませんでした', true); return; }
+  const video = document.getElementById('rcpCamVideo');
+  if (video) {
+    video.srcObject = _camStream;
+    video.style.transform = _camFacing === 'user' ? 'scaleX(-1)' : 'none';   // 前面は鏡像表示
+    try { await video.play(); } catch (e) {}
+  }
 }
 async function _camTick() {
   if (!_camStream) return;
@@ -4435,12 +4453,15 @@ async function _camTick() {
       } else if (window.jsQR) {
         const c = document.getElementById('rcpCamCanvas');
         const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
-        const w = 400, h = Math.max(1, Math.round(400 * vh / vw));
-        c.width = w; c.height = h;
+        // 中央の正方形だけ切り出して縮小（読み取り枠に合わせる＝高速＆命中率UP）
+        const crop = Math.round(Math.min(vw, vh) * 0.72);
+        const sx = Math.round((vw - crop) / 2), sy = Math.round((vh - crop) / 2);
+        const side = 360;
+        c.width = side; c.height = side;
         const ctx = c.getContext('2d', { willReadFrequently: true });
-        ctx.drawImage(video, 0, 0, w, h);
-        const img = ctx.getImageData(0, 0, w, h);
-        const r = window.jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' });
+        ctx.drawImage(video, sx, sy, crop, crop, 0, 0, side, side);
+        const img = ctx.getImageData(0, 0, side, side);
+        const r = window.jsQR(img.data, side, side, { inversionAttempts: 'dontInvert' });
         if (r && r.data) text = r.data;
       }
     } catch (e) {}
@@ -4450,7 +4471,7 @@ async function _camTick() {
       if (input) { input.value = String(text).trim(); handleRcpScan(); }
     }
   }
-  _camTimer = setTimeout(_camTick, 90);   // 約11fps（軽量＆高速）
+  _camTimer = setTimeout(_camTick, 60);   // 約16fps
 }
 function stopCamScan() {
   clearTimeout(_camTimer); _camTimer = null;
@@ -6458,6 +6479,7 @@ function bindEvents() {
   document.addEventListener('keydown', _scanKeyHandler, true);   // ハードウェアQR/バーコードリーダーの取りこぼし対策（受付中のみ作動）
   q('rcpCamBtn')?.addEventListener('click', startCamScan);
   q('rcpCamStop')?.addEventListener('click', stopCamScan);
+  q('rcpCamFlip')?.addEventListener('click', flipCamScan);
   ['rcpDate','rcpPeriod','rcpClass'].forEach(id => q(id)?.addEventListener('change', renderReceptionLists));
   // 受付中に学校を切り替える → その学校の学級に入れ替えて再表示
   q('rcpSchool')?.addEventListener('change', e => {

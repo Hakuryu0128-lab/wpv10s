@@ -2282,6 +2282,7 @@ img { max-width: 100%; display: block; }
   padding: 10px 20px; border-radius: 999px; border: 1px solid var(--border);
   background: var(--bg); color: var(--text-muted); font-size: 14px; font-weight: 700; cursor: pointer;
 }
+.rcp-cam-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 @media (prefers-reduced-motion: reduce) {
   .rcp-scan-pulse::before, .rcp-scan-pulse::after, .rcp-scan-icon, .rcp-scan-big { animation: none; }
 }

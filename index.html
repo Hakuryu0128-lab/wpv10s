@@ -15,7 +15,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css?v=10.16.67" />
+  <link rel="stylesheet" href="styles.css?v=10.16.68" />
   <title>WEEKY</title>
 </head>
 <body>
@@ -1144,7 +1144,10 @@
       <div class="rcp-cam" id="rcpCam" hidden>
         <video id="rcpCamVideo" playsinline muted></video>
         <div class="rcp-cam-frame" aria-hidden="true"></div>
-        <button class="rcp-cam-stop" id="rcpCamStop" type="button">カメラを止める</button>
+        <div class="rcp-cam-actions">
+          <button class="rcp-cam-stop" id="rcpCamFlip" type="button">🔄 前面／背面</button>
+          <button class="rcp-cam-stop" id="rcpCamStop" type="button">カメラを止める</button>
+        </div>
       </div>
       <canvas id="rcpCamCanvas" hidden></canvas>
     </div>
@@ -1281,6 +1284,6 @@
 <script src="vendor/html2canvas.min.js"></script>
 <script async src="https://tally.so/widgets/embed.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-<script src="app.js?v=10.16.67"></script>
+<script src="app.js?v=10.16.68"></script>
 </body>
 </html>
