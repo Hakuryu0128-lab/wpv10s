@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.64';
+const APP_VERSION = '10.16.65';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -4396,7 +4396,7 @@ function openReception(prefill) {
 function closeReception() {
   stopCamScan();
   document.getElementById('receptionOverlay').setAttribute('hidden', '');
-  renderAttendance();
+  switchView('attendance');   // 受付終了後はそのまま出席タブへ（ここで修正できるように）
 }
 
 /* ── 受付：カメラでQR読み取り（BarcodeDetector優先＝高速、無ければjsQRフォールバック） ── */
