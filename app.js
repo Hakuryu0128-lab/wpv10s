@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.62';
+const APP_VERSION = '10.16.63';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -223,6 +223,41 @@ function migrateData() {
     }
   });
 
+  // Collapse duplicate student records (same school + same deterministic ID).
+  // These duplicates doubled roster/attendance counts and broke QR reception
+  // (one copy could never be marked present). Merge their attendance / 評価 / 受付
+  // into the kept record, then drop the extras — no information is lost.
+  {
+    const seen = new Map();   // key → kept student
+    const remap = {};         // droppedId → keptId
+    const kept = [];
+    for (const st of state.students) {
+      // only dedup records we can identify with certainty
+      if (!st.qrId || !st.number) { kept.push(st); continue; }
+      const key = st.schoolId + '|' + st.qrId;
+      const keep = seen.get(key);
+      if (!keep) { seen.set(key, st); kept.push(st); continue; }
+      remap[st.id] = keep.id;
+      if (!keep.name && st.name) keep.name = st.name;
+      if (!keep.kana && st.kana) keep.kana = st.kana;
+      if (!keep.note && st.note) keep.note = st.note;
+      if (state.attendance && state.attendance[st.id]) {
+        const ka = state.attendance[keep.id] = state.attendance[keep.id] || {};
+        for (const d in state.attendance[st.id]) if (!(d in ka)) ka[d] = state.attendance[st.id][d];
+        delete state.attendance[st.id];
+      }
+      if (state.evaluations && state.evaluations[st.id]) {
+        const ke = state.evaluations[keep.id] = state.evaluations[keep.id] || {};
+        for (const k in state.evaluations[st.id]) if (!(k in ke)) ke[k] = state.evaluations[st.id][k];
+        delete state.evaluations[st.id];
+      }
+    }
+    if (kept.length !== state.students.length) {
+      state.students = kept;
+      (state.reception || []).forEach(r => { if (remap[r.studentId]) r.studentId = remap[r.studentId]; });
+    }
+  }
+
   // Unify ToDo model: merge longTodos into todos; projectId → tag; ensure tags[]
   const projName = id => (state.projects || []).find(p => p.id === id)?.name || '';
   state.todos.forEach(t => {
@@ -313,8 +348,18 @@ function classByName(name) {
 }
 
 function studentsInClass(className) {
-  return activeSchoolStudents()
-    .filter(s => s.className === className)
+  // de-duplicate by deterministic ID so a stray duplicate record can't double
+  // the roster count or block reception (counts/受付 rely on this list).
+  const seen = new Set();
+  const uniq = [];
+  for (const s of activeSchoolStudents()) {
+    if (s.className !== className) continue;
+    const key = (s.qrId && s.number) ? (s.schoolId + '|' + s.qrId) : ('id:' + s.id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniq.push(s);
+  }
+  return uniq
     .sort((a, b) => (a.number || 0) - (b.number || 0));
 }
 
@@ -3734,10 +3779,16 @@ function saveStudentModal() {
     const st = state.students.find(s => s.id === _editingStudentId);
     if (st) Object.assign(st, { year, grade, classNo, number: num, name, kana, note, className, qrId });
   } else {
-    state.students.push({
-      id: uid(), schoolId: state.activeSchoolId,
-      year, grade, classNo, number: num, name, kana, note, className, qrId,
-    });
+    // avoid creating a duplicate when the same class/出席番号 already exists
+    const dup = num && activeSchoolStudents().find(s => s.qrId === qrId && s.number === num);
+    if (dup) {
+      Object.assign(dup, { year, grade, classNo, number: num, name, kana, note, className, qrId });
+    } else {
+      state.students.push({
+        id: uid(), schoolId: state.activeSchoolId,
+        year, grade, classNo, number: num, name, kana, note, className, qrId,
+      });
+    }
   }
   state.rosterClass = className; // jump to the student's class
   save();
