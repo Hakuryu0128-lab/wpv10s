@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.68';
+const APP_VERSION = '10.16.69';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -6179,6 +6179,115 @@ function finishOnboarding() {
   renderWeekGrid();
   if (typeof renderSettings === 'function') renderSettings();
   updateClassStatus();
+  if (!tutorialDone()) setTimeout(startTutorial, 750);   // 初期設定の直後に1回だけ
+}
+
+/* ════════ 初回チュートリアル（カード＋名簿スポットライト＋応援） ════════ */
+const TUT_KEY = 'weeky_v10_tutorial_done';
+let _tutIndex = 0, _tutSteps = [], _tutEl = null;
+
+function tutorialDone(){ try { return localStorage.getItem(TUT_KEY) === '1'; } catch(e){ return false; } }
+function markTutorialDone(){ try { localStorage.setItem(TUT_KEY, '1'); } catch(e){} }
+
+function buildTutSteps(){
+  return [
+    { type:'card', emoji:'👋', title:'ようこそ、WEEKY へ',
+      body:'準備おつかれさまでした！かんたんに使い方を案内します（1分くらい）。<br>「スキップ」でいつでも閉じられます。',
+      primary:{ label:'次へ', action:_tutNext } },
+    { type:'card', emoji:'🔒', title:'まず、安心してください',
+      body:'このあと生徒の情報を入力します。「これ打ち込んで大丈夫かな？」と思いましたよね。<br><br><b>大丈夫です。</b>データはこの端末の中だけに保存され、インターネットと通信する機能はこのアプリにはありません。あるとしたら、天気をちょっと見てくるくらいです。',
+      primary:{ label:'次へ', action:_tutNext } },
+    { type:'spot', target:'.nav-item[data-view="roster"]', emoji:'👥', title:'名簿を登録してみましょう',
+      body:'まずは自分に関わる生徒の名簿から。ここ（名簿）で「学校 → 学級 → 生徒」の順に登録できます。',
+      primary:{ label:'名簿を開く', action:()=>{ try{ switchView('roster'); }catch(e){} _tutNext(); } } },
+    { type:'card', emoji:'☕', title:'最後に、ひとつだけ',
+      body:'いま、ひとりで頑張って作っています。維持・管理・保守にも少しずつ費用がかかっています。先生たちにはこれで楽をしてほしいので、料金は設けていません。<br><br>もし「いいな、応援したいな」と思えたら、製作者にコーヒーを1杯おごる感覚で、少しだけ寄付いただけたら嬉しいです（製作者、コーヒー大好きです。豆から淹れる本格派！）。<br><br>もちろん全機能ずっと無料。寄付しても特別な機能解放などはありません。ただ、製作者が<b>めちゃくちゃ喜びます。</b><br><br>「一銭もやらん、タダで使いたいんだ！」という方は、右上の × を押してください。二度とこの画面は出ません。もう請求じみたことはしませんので、安心してくださいね。',
+      primary:{ label:'応援する（PayPay）', action:()=>{ _tutFinish(); try{ switchView('settings'); showSettingsCategory('support'); }catch(e){} } },
+      noSkip:true },
+  ];
+}
+
+function _tutBuildEl(){
+  const ov = document.createElement('div');
+  ov.className = 'tut-overlay'; ov.id = 'tutorialOverlay'; ov.hidden = true;
+  ov.innerHTML =
+    '<div class="tut-spot" id="tutSpot" hidden></div>' +
+    '<div class="tut-card" id="tutCard" role="dialog" aria-modal="true">' +
+      '<button class="tut-close" id="tutClose" type="button" aria-label="閉じる">×</button>' +
+      '<div class="tut-emoji" id="tutEmoji" aria-hidden="true"></div>' +
+      '<h3 class="tut-title" id="tutTitle"></h3>' +
+      '<div class="tut-body" id="tutBody"></div>' +
+      '<div class="tut-controls">' +
+        '<button class="tut-skip" id="tutSkip" type="button">スキップ</button>' +
+        '<span class="tut-dots" id="tutDots"></span>' +
+        '<button class="tut-primary" id="tutPrimary" type="button">次へ</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#tutClose').addEventListener('click', _tutFinish);
+  ov.querySelector('#tutSkip').addEventListener('click', _tutFinish);
+  window.addEventListener('resize', _tutReposition);
+  return ov;
+}
+
+function startTutorial(){
+  _tutSteps = buildTutSteps();
+  _tutIndex = 0;
+  if (!_tutEl) _tutEl = _tutBuildEl();
+  _tutEl.hidden = false;
+  _tutRender();
+}
+
+function _tutNext(){
+  if (_tutIndex >= _tutSteps.length - 1) { _tutFinish(); return; }
+  _tutIndex++; _tutRender();
+}
+
+function _tutFinish(){
+  markTutorialDone();
+  if (_tutEl) _tutEl.hidden = true;
+}
+
+function _tutRender(){
+  if (!_tutEl) return;
+  const s = _tutSteps[_tutIndex];
+  const g = id => document.getElementById(id);
+  g('tutEmoji').textContent = s.emoji || '';
+  g('tutTitle').textContent = s.title || '';
+  g('tutBody').innerHTML = s.body || '';
+  const prim = g('tutPrimary');
+  prim.textContent = (s.primary && s.primary.label) || '次へ';
+  prim.onclick = (s.primary && s.primary.action) || _tutNext;
+  g('tutSkip').style.visibility = s.noSkip ? 'hidden' : 'visible';
+  g('tutDots').innerHTML = _tutSteps.map((_, i) => `<span class="tut-dot${i === _tutIndex ? ' on' : ''}"></span>`).join('');
+  _tutReposition();
+}
+
+function _tutReposition(){
+  if (!_tutEl || _tutEl.hidden) return;
+  const s = _tutSteps[_tutIndex];
+  const spot = document.getElementById('tutSpot'), card = document.getElementById('tutCard');
+  if (!spot || !card) return;
+  card.classList.remove('tut-card--center', 'tut-card--bottom');
+  card.style.left = card.style.top = card.style.transform = '';
+  const tgt = (s.type === 'spot' && s.target) ? document.querySelector(s.target) : null;
+  if (tgt && tgt.offsetParent !== null) {
+    const r = tgt.getBoundingClientRect(), pad = 6;
+    spot.hidden = false;
+    spot.style.left = (r.left - pad) + 'px'; spot.style.top = (r.top - pad) + 'px';
+    spot.style.width = (r.width + pad * 2) + 'px'; spot.style.height = (r.height + pad * 2) + 'px';
+    _tutEl.classList.remove('tut-dim');
+    if (window.innerWidth < 560) {
+      card.classList.add('tut-card--bottom');
+    } else {
+      card.style.left = Math.min(r.right + 16, window.innerWidth - 340) + 'px';
+      card.style.top = Math.max(14, Math.min(r.top, window.innerHeight - 280)) + 'px';
+    }
+  } else {
+    spot.hidden = true;
+    _tutEl.classList.add('tut-dim');
+    card.classList.add('tut-card--center');
+  }
 }
 
 function startApp() {
@@ -6480,6 +6589,7 @@ function bindEvents() {
   q('rcpCamBtn')?.addEventListener('click', startCamScan);
   q('rcpCamStop')?.addEventListener('click', stopCamScan);
   q('rcpCamFlip')?.addEventListener('click', flipCamScan);
+  q('tutReplayBtn')?.addEventListener('click', startTutorial);
   ['rcpDate','rcpPeriod','rcpClass'].forEach(id => q(id)?.addEventListener('change', renderReceptionLists));
   // 受付中に学校を切り替える → その学校の学級に入れ替えて再表示
   q('rcpSchool')?.addEventListener('change', e => {

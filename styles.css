@@ -2283,6 +2283,41 @@ img { max-width: 100%; display: block; }
   background: var(--bg); color: var(--text-muted); font-size: 14px; font-weight: 700; cursor: pointer;
 }
 .rcp-cam-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+/* ── 初回チュートリアル ── */
+.tut-overlay { position: fixed; inset: 0; z-index: 4000; }
+.tut-overlay[hidden] { display: none !important; }
+.tut-overlay.tut-dim { background: rgba(15,18,30,.62); }
+.tut-spot {
+  position: fixed; border-radius: 14px; border: 2px solid rgba(255,255,255,.95);
+  box-shadow: 0 0 0 4000px rgba(15,18,30,.62); pointer-events: none;
+  transition: left .25s ease, top .25s ease, width .25s ease, height .25s ease;
+}
+.tut-spot[hidden] { display: none; }
+.tut-card {
+  position: fixed; width: min(340px, calc(100vw - 32px));
+  background: var(--bg, #fff); color: var(--text, #1f2937);
+  border-radius: 18px; padding: 22px 20px 16px; box-shadow: 0 14px 44px rgba(0,0,0,.3);
+}
+.tut-card--center { left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.tut-card--bottom { left: 50%; bottom: 24px; top: auto; transform: translateX(-50%); }
+.tut-close {
+  position: absolute; top: 10px; right: 12px; border: none; background: none;
+  font-size: 22px; line-height: 1; color: var(--text-muted, #999); cursor: pointer;
+}
+.tut-emoji { font-size: 34px; }
+.tut-title { margin: 6px 0 8px; font-size: 18px; font-weight: 800; }
+.tut-body { font-size: 14px; line-height: 1.75; color: var(--text, #222); }
+.tut-controls { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 18px; }
+.tut-skip { border: none; background: none; color: var(--text-muted, #999); font-size: 13px; cursor: pointer; }
+.tut-dots { display: flex; gap: 6px; }
+.tut-dot { width: 7px; height: 7px; border-radius: 50%; background: color-mix(in srgb, var(--brand) 25%, transparent); }
+.tut-dot.on { background: var(--brand); }
+.tut-primary {
+  border: none; border-radius: 999px; padding: 9px 18px;
+  background: var(--brand); color: #fff; font-size: 14px; font-weight: 800; cursor: pointer;
+}
+.tut-primary:active { transform: scale(.97); }
 @media (prefers-reduced-motion: reduce) {
   .rcp-scan-pulse::before, .rcp-scan-pulse::after, .rcp-scan-icon, .rcp-scan-big { animation: none; }
 }
