@@ -133,7 +133,7 @@ img { max-width: 100%; display: block; }
   z-index: 200;
   /* top inset keeps the logo clear of the status bar; painted by the sidebar's
      own dark background so no white frame appears */
-  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  padding: env(safe-area-inset-top) 6px env(safe-area-inset-bottom);   /* 左右に余白＝選択ピルをインセット表示 */
 }
 
 /* W logo mark */
@@ -177,7 +177,7 @@ img { max-width: 100%; display: block; }
   padding: 7px 4px;
   border: none;
   background: none;
-  color: rgba(255,255,255,.62);
+  color: rgba(255,255,255,.9);
   font-size: 7.5px;
   font-weight: 600;
   letter-spacing: .3px;
@@ -186,6 +186,7 @@ img { max-width: 100%; display: block; }
   flex-shrink: 0;
   min-height: 48px;
   position: relative;
+  border-radius: 12px;
 }
 .nav-item:hover {
   color: rgba(255,255,255,.95);
@@ -193,8 +194,8 @@ img { max-width: 100%; display: block; }
 }
 .nav-item:hover .nav-icon { transform: scale(1.22); }
 .nav-item.active {
-  color: #fff;
-  background: color-mix(in srgb, var(--brand) 42%, transparent);
+  color: color-mix(in srgb, var(--brand) 72%, #000);            /* 濃いテーマ色のアイコン/文字 */
+  background: color-mix(in srgb, var(--brand) 14%, #ffffff);     /* 薄いテーマ色の背景（反転） */
 }
 .nav-item.active::before {
   content: '';
@@ -206,11 +207,11 @@ img { max-width: 100%; display: block; }
 }
 
 /* Student items: emerald accent */
-.nav-item--student { color: rgba(255,255,255,.58); }
+.nav-item--student { color: rgba(255,255,255,.9); }
 .nav-item--student:hover { color: rgba(16,185,129,.9); background: rgba(16,185,129,.08); }
 .nav-item--student.active {
-  color: #34D399;
-  background: rgba(16,185,129,.18);
+  color: color-mix(in srgb, #10B981 72%, #000);            /* 濃い緑のアイコン/文字 */
+  background: color-mix(in srgb, #10B981 14%, #ffffff);     /* 薄い緑の背景（反転） */
 }
 .nav-item--student.active::before { background: #10B981; }
 
