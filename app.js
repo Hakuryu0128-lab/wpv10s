@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.63';
+const APP_VERSION = '10.16.64';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -4482,6 +4482,59 @@ function handleRcpScan() {
   openForgotPopup(st);
 }
 
+/* ── ハードウェアQR/バーコードリーダー対応 ──
+   リーダーは「キーボードの超高速連打＋Enter」として届く。受付中にフォーカスが
+   入力欄から外れていると桁を取りこぼすため、画面全体でキー入力を監視し、
+   高速連打（=リーダー）だけをバッファに溜めてEnterでまとめて処理する。
+   手入力欄やメモを人が打っている間（該当欄にフォーカス）は一切介入しない。 */
+let _scanBuf = '';
+let _scanLastTs = 0;
+let _scanTimer = null;
+const SCAN_GAP_MS = 60;   // これより短い間隔の連続入力＝リーダーとみなす
+const SCAN_MIN_LEN = 3;
+
+function _scanReset() { _scanBuf = ''; clearTimeout(_scanTimer); }
+
+function _scanKeyHandler(e) {
+  const ov = document.getElementById('receptionOverlay');
+  if (!ov || ov.hasAttribute('hidden')) { _scanReset(); return; }   // 受付中のみ作動
+  const ae = document.activeElement;                                 // 手入力中は触らない
+  if (ae && (ae.id === 'rcpScanInput' || ae.id === 'forgotMemo')) { _scanReset(); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+  const now = Date.now();
+  const fast = now - _scanLastTs < SCAN_GAP_MS;
+  _scanLastTs = now;
+
+  if (e.key === 'Enter') {
+    if (fast && _scanBuf.length >= SCAN_MIN_LEN) {
+      const code = _scanBuf;
+      _scanReset();
+      e.preventDefault(); e.stopPropagation();
+      _processScannedCode(code);
+    } else {
+      _scanReset();
+    }
+    return;
+  }
+  if (e.key && e.key.length === 1) {
+    if (!fast) _scanBuf = '';            // 連打が途切れたら新しい読み取りとして開始
+    _scanBuf += e.key;
+    if (fast && _scanBuf.length >= 2) { e.preventDefault(); e.stopPropagation(); }
+    clearTimeout(_scanTimer);
+    _scanTimer = setTimeout(_scanReset, 250);   // 中途半端なバッファは破棄
+  }
+}
+
+function _processScannedCode(code) {
+  // 忘れ物ポップアップ表示中は、今の生徒を確定してから（取りこぼし防止のため無視）
+  const popup = document.getElementById('forgotModalBackdrop');
+  if (popup && !popup.hasAttribute('hidden')) return;
+  const input = document.getElementById('rcpScanInput');
+  if (input) input.value = String(code).trim();
+  handleRcpScan();
+}
+
 function rcpFlash(msg, err) {
   const hint = document.getElementById('rcpScanHint');
   if (!hint) return;
@@ -6402,6 +6455,7 @@ function bindEvents() {
   q('startReceptionBtn')?.addEventListener('click', () => openReception());
   q('rcpClose')?.addEventListener('click', closeReception);
   q('rcpScanInput')?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); handleRcpScan(); } });
+  document.addEventListener('keydown', _scanKeyHandler, true);   // ハードウェアQR/バーコードリーダーの取りこぼし対策（受付中のみ作動）
   q('rcpCamBtn')?.addEventListener('click', startCamScan);
   q('rcpCamStop')?.addEventListener('click', stopCamScan);
   ['rcpDate','rcpPeriod','rcpClass'].forEach(id => q(id)?.addEventListener('change', renderReceptionLists));
