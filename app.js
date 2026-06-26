@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.73';
+const APP_VERSION = '10.16.74';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -4435,6 +4435,25 @@ function closeReception() {
 /* ── 受付：カメラでQR読み取り（BarcodeDetector優先＝高速、無ければjsQRフォールバック） ── */
 let _camStream = null, _camTimer = null, _camDetector = null, _camCooldown = 0;
 let _camFacing = 'environment';   // 'environment'=背面 / 'user'=前面
+
+/* zxing-wasm：jsQRより高精度・高速なQRデコーダ（BarcodeDetector非対応のiOS等で使う）。
+   CDNから動的import。失敗（オフライン等）したら jsQR にフォールバックするので安全。 */
+let _zxingMod = null, _zxingTried = false;
+function _getZxing() {
+  if (_zxingMod || _zxingTried) return;
+  _zxingTried = true;
+  import('https://esm.sh/zxing-wasm@2/reader')
+    .then(m => { _zxingMod = m; })
+    .catch(() => { _zxingMod = null; });
+}
+
+const CAM_CONSTRAINTS = facing => ({ video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+
+function _updateCamFlipLabel() {
+  const b = document.getElementById('rcpCamFlip');
+  if (b) b.textContent = _camFacing === 'user' ? '🔄 前面カメラ' : '🔄 背面カメラ';
+}
+
 async function startCamScan() {
   _ensureScanAudio();   // タップ操作のうちに確認音を解錠
   const video = document.getElementById('rcpCamVideo');
@@ -4445,17 +4464,20 @@ async function startCamScan() {
   }
   _camFacing = 'environment';
   try {
-    _camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: _camFacing }, audio: false });
+    _camStream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS(_camFacing));
   } catch (e) { rcpFlash('カメラを起動できませんでした（カメラの許可が必要です）', true); return; }
   video.srcObject = _camStream;
   video.style.transform = 'none';
   try { await video.play(); } catch (e) {}
   if (wrap) wrap.hidden = false;
   if (btn) btn.hidden = true;
+  document.querySelector('.rcp-scanmain')?.classList.add('cam-active');   // ID入力欄等を隠してプレビューを拡大
+  _updateCamFlipLabel();
   _camDetector = null;
   if ('BarcodeDetector' in window) {
     try { _camDetector = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { _camDetector = null; }
   }
+  if (!_camDetector) _getZxing();   // iOS等：高精度エンジン(zxing-wasm)を先読み
   clearTimeout(_camTimer);
   _camTick();
 }
@@ -4465,14 +4487,19 @@ async function flipCamScan() {
   _camFacing = _camFacing === 'environment' ? 'user' : 'environment';
   try { _camStream.getTracks().forEach(t => t.stop()); } catch (e) {}
   try {
-    _camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: _camFacing }, audio: false });
-  } catch (e) { rcpFlash('カメラを切り替えられませんでした', true); return; }
+    _camStream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS(_camFacing));
+  } catch (e) {
+    // 一部端末は前面が無い／指定が厳しい等。素の指定で再試行。
+    try { _camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: _camFacing }, audio: false }); }
+    catch (e2) { rcpFlash(`${_camFacing === 'user' ? '前面' : '背面'}カメラに切り替えられませんでした`, true); _camFacing = _camFacing === 'user' ? 'environment' : 'user'; _updateCamFlipLabel(); return; }
+  }
   const video = document.getElementById('rcpCamVideo');
   if (video) {
     video.srcObject = _camStream;
     video.style.transform = _camFacing === 'user' ? 'scaleX(-1)' : 'none';   // 前面は鏡像表示
     try { await video.play(); } catch (e) {}
   }
+  _updateCamFlipLabel();
 }
 async function _camTick() {
   if (!_camStream) return;
@@ -4487,7 +4514,7 @@ async function _camTick() {
         // 中央の正方形だけ切り出して縮小（前面/背面どちらも・両エンジン共通で読み取り枠に合わせる）
         const crop = Math.round(Math.min(vw, vh) * 0.72);
         const sx = Math.round((vw - crop) / 2), sy = Math.round((vh - crop) / 2);
-        const side = 360;
+        const side = 480;   // 広角の前面カメラでもQRが小さくなりすぎないよう少し高解像度に
         c.width = side; c.height = side;
         const ctx = c.getContext('2d', { willReadFrequently: true });
         ctx.drawImage(video, sx, sy, crop, crop, 0, 0, side, side);
@@ -4496,8 +4523,16 @@ async function _camTick() {
           if (codes && codes.length) text = codes[0].rawValue;
         } else {
           const img = ctx.getImageData(0, 0, side, side);
-          const r = window.jsQR(img.data, side, side, { inversionAttempts: 'dontInvert' });
-          if (r && r.data) text = r.data;
+          if (_zxingMod && _zxingMod.readBarcodes) {   // 高精度エンジン優先（小さい/傾いたQRに強い）
+            try {
+              const res = await _zxingMod.readBarcodes(img, { tryHarder: true, formats: ['QRCode'], maxNumberOfSymbols: 1 });
+              if (res && res.length && res[0].text) text = res[0].text;
+            } catch (e) {}
+          }
+          if (!text && window.jsQR) {   // 取れなければ jsQR（オフライン時もこちら）
+            const r = window.jsQR(img.data, side, side, { inversionAttempts: 'dontInvert' });
+            if (r && r.data) text = r.data;
+          }
         }
       }
     } catch (e) {}
@@ -4515,6 +4550,7 @@ function stopCamScan() {
   const video = document.getElementById('rcpCamVideo'); if (video) video.srcObject = null;
   const wrap = document.getElementById('rcpCam'); if (wrap) wrap.hidden = true;
   const btn = document.getElementById('rcpCamBtn'); if (btn) btn.hidden = false;
+  document.querySelector('.rcp-scanmain')?.classList.remove('cam-active');
 }
 
 /* 読み取り確認音（Web Audioで生成＝音源ファイル不要・オフライン可）。

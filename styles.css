@@ -2292,6 +2292,13 @@ img { max-width: 100%; display: block; }
   background: var(--bg); color: var(--text-muted); font-size: 14px; font-weight: 700; cursor: pointer;
 }
 .rcp-cam-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+/* カメラ起動中＝カメラモード：ID入力欄などを隠してプレビューを大きく */
+.rcp-scanmain.cam-active .rcp-scan-pulse,
+.rcp-scanmain.cam-active .rcp-scan-big,
+.rcp-scanmain.cam-active #rcpScanInput,
+.rcp-scanmain.cam-active #rcpScanHint { display: none; }
+.rcp-scanmain.cam-active .rcp-cam { width: min(760px, 100%); }
+.rcp-scanmain.cam-active .rcp-cam video { max-height: 74vh; }
 .rcp-allpresent-btn {
   width: 100%; margin: 2px 0 8px; padding: 9px 12px; border-radius: 12px;
   border: 1.5px solid var(--student); background: color-mix(in srgb, var(--student) 10%, var(--bg));
