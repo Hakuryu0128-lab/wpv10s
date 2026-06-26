@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.71';
+const APP_VERSION = '10.16.72';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -4059,7 +4059,10 @@ function renderAttendanceBySubject() {
 
   // ヘッダー：第1回（日付）… タップでその授業の週案へ
   const headCells = occ.map((o, i) =>
-    `<th class="abs-occ" data-key="${escHtml(o.key)}" title="この授業の週案へ"><span class="abs-occ-n">${i + 1}</span><span class="abs-occ-d">${md(o.date)}</span></th>`
+    `<th class="abs-occ" data-key="${escHtml(o.key)}" data-date="${escHtml(o.date)}" data-period="${escHtml(String(o.period))}">
+       <button class="abs-occ-jump" type="button" title="この授業の週案へ"><span class="abs-occ-n">${i + 1}</span><span class="abs-occ-d">${md(o.date)}</span></button>
+       <button class="abs-occ-all" type="button" title="この回を全員「出席」に">全員○</button>
+     </th>`
   ).join('');
 
   const rows = students.map(st => {
@@ -4094,11 +4097,16 @@ function renderAttendanceBySubject() {
       </table>
     </div>`;
 
-  // 回数ヘッダー → その授業の週へジャンプ（進度表と同じ挙動）
-  container.querySelectorAll('.abs-occ[data-key]').forEach(th => th.addEventListener('click', () => {
-    const dateStr = th.dataset.key.split('_')[0];
+  // 回数（番号/日付）→ その授業の週へジャンプ（進度表と同じ挙動）
+  container.querySelectorAll('.abs-occ-jump').forEach(btn => btn.addEventListener('click', () => {
+    const dateStr = btn.closest('.abs-occ').dataset.key.split('_')[0];
     state.currentWeekStart = getWeekStart(new Date(dateStr + 'T00:00:00'));
     renderWeekTitle(); renderWeekGrid(); switchView('weekly');
+  }));
+  // 「全員○」→ その回（日付＋時限）を全員出席に
+  container.querySelectorAll('.abs-occ-all').forEach(btn => btn.addEventListener('click', () => {
+    const th = btn.closest('.abs-occ');
+    markSessionPresent(th.dataset.date, th.dataset.period);
   }));
 
   // セル（○×△）をタップ → 後から出欠を変更
@@ -4107,6 +4115,30 @@ function renderAttendanceBySubject() {
     td.addEventListener('click', open);
     td.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
   });
+}
+
+/* その回（日付＋時限）を、いまの学級の生徒全員「出席」にする。
+   出席タブで「まず全員出席→欠席の人だけ×に直す」運用向け。受付画面には置かない
+   （受付中は生徒が触れてしまうため）。 */
+async function markSessionPresent(date, period) {
+  const cls = state.rosterClass;
+  const roster = studentsInClass(cls);
+  if (!roster.length) return;
+  const presentIds = new Set(
+    state.reception.filter(r => r.date === date && String(r.period) === String(period)).map(r => r.studentId)
+  );
+  const todo = roster.filter(s => !presentIds.has(s.id));
+  const label = `${date.slice(5).replace('-', '/')}・${period === 'after' ? '放課後' : period + '限'}`;
+  if (!todo.length) { showToast('この回はすでに全員出席です'); return; }
+  if (!(await customConfirm(`${label} を全員「出席」にします。よろしいですか？\n（このあと欠席の人だけ × に直してください）`))) return;
+  todo.forEach(st => {
+    if (!state.attendance[st.id]) state.attendance[st.id] = {};
+    state.attendance[st.id][date] = 'present';
+    state.reception.push({ date, period, className: st.className, studentId: st.id, name: st.name, time: nowTimeStr(), items: [] });
+  });
+  save();
+  renderAttendanceBySubject();
+  showToast(`全員「出席」にしました（${todo.length}名）`);
 }
 
 /* 出欠あとから変更ポップアップ（出席/忘れ物/欠席を切替） */
@@ -4615,28 +4647,6 @@ function confirmPresent() {
 function nowTimeStr() {
   const d = new Date();
   return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-}
-
-/* 未受付の生徒をまとめて「出席」にする（あとで欠席の人だけ取り消す運用向け） */
-async function markAllPresent() {
-  const { date, period, cls } = rcpKey();
-  const roster = studentsInClass(cls);
-  if (!roster.length) { rcpFlash('この学級に生徒がいません', true); return; }
-  const presentIds = new Set(
-    state.reception.filter(r => r.date === date && String(r.period) === String(period)).map(r => r.studentId)
-  );
-  const todo = roster.filter(s => !presentIds.has(s.id));
-  if (!todo.length) { rcpFlash('全員すでに出席です'); return; }
-  if (!(await customConfirm(`未受付の ${todo.length} 名を「出席」にします。よろしいですか？`))) return;
-  todo.forEach(st => {
-    if (!state.attendance[st.id]) state.attendance[st.id] = {};
-    state.attendance[st.id][date] = 'present';
-    const existing = state.reception.find(r => r.date === date && String(r.period) === String(period) && r.studentId === st.id);
-    if (!existing) state.reception.push({ date, period, className: st.className, studentId: st.id, name: st.name, time: nowTimeStr(), items: [] });
-  });
-  save();
-  renderReceptionLists();
-  rcpBurst(`全員出席（${todo.length}名）`, 0);
 }
 
 function renderReceptionLists() {
@@ -6619,7 +6629,6 @@ function bindEvents() {
   q('rcpCamBtn')?.addEventListener('click', startCamScan);
   q('rcpCamStop')?.addEventListener('click', stopCamScan);
   q('rcpCamFlip')?.addEventListener('click', flipCamScan);
-  q('rcpAllPresentBtn')?.addEventListener('click', markAllPresent);
   q('tutReplayBtn')?.addEventListener('click', startTutorial);
   ['rcpDate','rcpPeriod','rcpClass'].forEach(id => q(id)?.addEventListener('change', renderReceptionLists));
   // 受付中に学校を切り替える → その学校の学級に入れ替えて再表示

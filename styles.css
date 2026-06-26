@@ -2158,11 +2158,20 @@ img { max-width: 100%; display: block; }
 .abs-name { text-align: left; padding: 8px 10px !important; white-space: nowrap; position: sticky; left: 0; z-index: 2; background: var(--bg); }
 .abs-corner { z-index: 3; background: var(--bg-subtle); }
 .abs-num { display: inline-block; min-width: 1.6em; color: var(--gray-400); font-weight: 700; margin-right: 4px; }
-.abs-occ { min-width: 44px; text-align: center; cursor: pointer; transition: background var(--fast); }
-.abs-occ:hover { background: var(--brand-light); }
-.abs-occ:hover .abs-occ-n { color: var(--brand); }
+.abs-occ { min-width: 48px; text-align: center; padding: 2px; vertical-align: top; }
+.abs-occ-jump { display: block; width: 100%; border: none; background: none; cursor: pointer; padding: 2px 2px 0; border-radius: 6px; transition: background var(--fast); }
+.abs-occ-jump:hover { background: var(--brand-light); }
+.abs-occ-jump:hover .abs-occ-n { color: var(--brand); }
 .abs-occ-n { display: block; font-size: 13px; font-weight: 800; color: var(--gray-800); }
 .abs-occ-d { display: block; font-size: 9.5px; color: var(--gray-400); font-weight: 600; }
+.abs-occ-all {
+  display: block; width: 100%; margin-top: 3px; padding: 2px 0; border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--success) 45%, transparent);
+  background: color-mix(in srgb, var(--success) 10%, var(--bg));
+  color: var(--success); font-size: 9px; font-weight: 800; cursor: pointer; white-space: nowrap;
+}
+.abs-occ-all:hover { background: color-mix(in srgb, var(--success) 18%, var(--bg)); }
+.abs-occ-all:active { transform: scale(.96); }
 .abs-cell { text-align: center; font-size: 15px; font-weight: 700; color: var(--success); cursor: pointer; transition: background var(--fast); }
 .abs-cell[data-sid]:hover { background: var(--brand-light); }
 .att-edit-footer { flex-wrap: wrap; }
