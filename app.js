@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.75';
+const APP_VERSION = '10.16.76';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -1452,7 +1452,14 @@ function openLessonModal(key, date, period) {
 
   const dayIdx = [0,1,2,3,4,5].find(i => formatDate(addDays(state.currentWeekStart, i)) === key.split('_')[0]) ?? 0;
   const periodLabel = (period === 'after') ? '放課後' : `${period}時限`;
-  document.getElementById('lessonPeriodInfo').textContent = `${DAYS[dayIdx]}曜 ${periodLabel}`;
+  // 同じ教科・学級の中で何回目か（保存済みの内容に基づく）
+  let occInfo = '';
+  if (lesson.subjectId && lesson.className) {
+    const occ = subjectOccurrences(lesson.subjectId, lesson.className);
+    const idx = occ.findIndex(o => o.key === key);
+    if (idx >= 0) occInfo = `　・${idx + 1}回目 / 全${occ.length}回`;
+  }
+  document.getElementById('lessonPeriodInfo').textContent = `${DAYS[dayIdx]}曜 ${periodLabel}${occInfo}`;
 
   // 出席受付：この日・時限・学級の出席状況＋受付起動ボタン
   renderLessonAttendance(key.split('_')[0], period);

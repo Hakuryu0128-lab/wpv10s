@@ -2164,7 +2164,7 @@ img { max-width: 100%; display: block; }
 .abs-occ-jump:hover .abs-occ-n { color: var(--brand); }
 .abs-occ-n { display: block; font-size: 13px; font-weight: 800; color: var(--gray-800); }
 .abs-occ-d { display: block; font-size: 9.5px; color: var(--gray-400); font-weight: 600; }
-.abs-occ-p { display: block; font-size: 9.5px; color: var(--brand); font-weight: 700; }
+.abs-occ-p { display: block; font-size: 9.5px; color: var(--gray-400); font-weight: 600; }
 .abs-occ-all {
   display: block; width: 100%; margin-top: 3px; padding: 2px 0; border-radius: 6px;
   border: 1px solid color-mix(in srgb, var(--success) 45%, transparent);
