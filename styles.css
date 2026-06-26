@@ -2414,6 +2414,16 @@ img { max-width: 100%; display: block; }
 }
 .forgot-item:active { transform: scale(.96); }
 .forgot-item.selected { background: #FEF2F2; border-color: var(--danger); color: var(--danger); box-shadow: 0 0 0 3px #FEE2E2; }
+/* 受付の忘れ物モーダル：離れても読める・押しやすい大きめUI（「出席」を最大の主役ボタンに） */
+#forgotModalBackdrop .modal--dialog { max-width: 640px; width: min(640px, calc(100vw - 28px)); }
+#forgotModalBackdrop .forgot-name { font-size: 42px; line-height: 1.1; }
+#forgotModalBackdrop .forgot-id { font-size: 18px; }
+#forgotModalBackdrop .forgot-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; margin-top: 14px; }
+#forgotModalBackdrop .forgot-item { padding: 26px 12px; font-size: 21px; border-radius: 16px; }
+#forgotModalBackdrop #forgotMemo { font-size: 17px; padding: 14px; }
+#forgotModalBackdrop .modal-footer { flex-direction: column-reverse; gap: 10px; }
+#forgotModalBackdrop #forgotPresentBtn { width: 100%; font-size: 27px; font-weight: 900; padding: 24px; border-radius: 18px; }
+#forgotModalBackdrop #forgotCancelBtn { width: 100%; font-size: 15px; padding: 12px; }
 @media (max-width: 820px) {
   .rcp-body { flex-direction: column; overflow-y: auto; }
   .rcp-side { width: 100%; }

@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.72';
+const APP_VERSION = '10.16.73';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -4406,6 +4406,7 @@ function resolveLessonClass(className) {
 }
 
 function openReception(prefill) {
+  _ensureScanAudio();   // 受付を開いたタップのうちに確認音を解錠
   // school select
   const schoolSel = document.getElementById('rcpSchool');
   if (schoolSel) {
@@ -4435,6 +4436,7 @@ function closeReception() {
 let _camStream = null, _camTimer = null, _camDetector = null, _camCooldown = 0;
 let _camFacing = 'environment';   // 'environment'=背面 / 'user'=前面
 async function startCamScan() {
+  _ensureScanAudio();   // タップ操作のうちに確認音を解錠
   const video = document.getElementById('rcpCamVideo');
   const wrap = document.getElementById('rcpCam');
   const btn = document.getElementById('rcpCamBtn');
@@ -4515,25 +4517,52 @@ function stopCamScan() {
   const btn = document.getElementById('rcpCamBtn'); if (btn) btn.hidden = false;
 }
 
-/* find a student in the current reception class by QR-id or 出席番号 */
-function rcpFindStudent(code) {
-  const { cls } = rcpKey();
-  const list = studentsInClass(cls);
-  code = String(code).trim();
-  // exact qrId match (whole school) then number within class
-  let st = activeSchoolStudents().find(s => s.qrId === code);
-  if (st) return st;
-  const num = parseInt(code.replace(/\D/g, ''), 10);
-  return list.find(s => s.number === num) || null;
+/* 読み取り確認音（Web Audioで生成＝音源ファイル不要・オフライン可）。
+   iOS等で鳴らすにはユーザー操作で一度 unlock が必要なので、受付/カメラ開始時に解錠する。 */
+let _scanAudioCtx = null;
+function _ensureScanAudio() {
+  try {
+    if (!_scanAudioCtx) _scanAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (_scanAudioCtx.state === 'suspended') _scanAudioCtx.resume();
+  } catch (e) {}
+}
+function playScanBeep() {
+  try {
+    _ensureScanAudio();
+    const ctx = _scanAudioCtx; if (!ctx) return;
+    const t = ctx.currentTime;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(880, t);          // ピ
+    o.frequency.setValueAtTime(1320, t + 0.07);  // ポッ（二段で「読み取った感」）
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.3, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(t); o.stop(t + 0.2);
+  } catch (e) {}
 }
 
 function handleRcpScan() {
   const input = document.getElementById('rcpScanInput');
   const code = input.value.trim();
   if (!code) return;
-  const st = rcpFindStudent(code);
   input.value = '';
+  const { cls } = rcpKey();
+  const inClass = studentsInClass(cls);
+  // qrId 完全一致（学校内）。別の学級の生徒なら弾く。
+  const byId = activeSchoolStudents().find(s => s.qrId === code);
+  if (byId && !inClass.some(s => s.id === byId.id)) {
+    rcpFlash(`${byId.name || 'この生徒'} は受付中の学級ではありません（${byId.className || '別の学級'}）`, true);
+    return;
+  }
+  let st = byId || null;
+  if (!st) {   // 出席番号での手入力フォールバック（当該学級内のみ）
+    const num = parseInt(code.replace(/\D/g, ''), 10);
+    st = inClass.find(s => s.number === num) || null;
+  }
   if (!st) { rcpFlash(`「${code}」は見つかりません`, true); return; }
+  playScanBeep();   // 読み取り確認音
   openForgotPopup(st);
 }
 
