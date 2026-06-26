@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.76';
+const APP_VERSION = '10.16.77';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -1799,9 +1799,9 @@ function initLmHwCanvas() {
   const w = Math.round(rect.width)  || 640;
   const h = Math.round(rect.height) || 380;
   if (w < 50 || h < 50) { setTimeout(initLmHwCanvas, 60); return; } // layout not ready yet
-  // Render at device-pixel resolution so strokes are crisp (not thin/faint)
-  // on Retina/iPad. We draw in CSS-px coordinates via a scaled transform.
-  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  // 高精細バックバッファ：表示が小さいモーダル側でも最低でも横〜1600pxで描画し、
+  // 全画面と同等の解像度にする（拡大/縮小しても文字がかくかく・ぼやけないように）。
+  const dpr = Math.min(4, Math.max(Math.min(window.devicePixelRatio || 1, 3), 1600 / w));
   canvas.width  = Math.round(w * dpr);
   canvas.height = Math.round(h * dpr);
   canvas.style.width  = w + 'px';
@@ -1849,9 +1849,18 @@ async function lmHwLoadPage() {
   const img = new Image();
   img.onload = () => {
     if (_lmHwCtx && currentLessonKey === wantKey && hwPageIndex === wantIdx)
-      _lmHwCtx.drawImage(img, 0, 0, lw, lh);
+      _hwDrawContain(_lmHwCtx, img, lw, lh);   // 縦横比を保って配置（つぶれ/見切れ防止）
   };
   img.src = dataURL;
+}
+
+/* 画像を縦横比を保ったままキャンバスに収めて描く（全画面↔モーダルで形が変わっても破綻しない） */
+function _hwDrawContain(ctx, img, lw, lh) {
+  const ir = img.width / img.height, cr = lw / lh;
+  let dw = lw, dh = lh, dx = 0, dy = 0;
+  if (ir > cr) { dh = lw / ir; dy = (lh - dh) / 2; }
+  else if (ir < cr) { dw = lh * ir; dx = (lw - dw) / 2; }
+  ctx.drawImage(img, dx, dy, dw, dh);
 }
 
 function lmHwSavePage() {
@@ -1864,6 +1873,7 @@ function lmHwSavePage() {
 }
 
 let _lmHwLast = null;
+let _lmHwMid = null;   // スムージング用の中点
 
 /* line width: solid base, Apple Pencil pressure only adds a little */
 function lmHwWidth(e) {
@@ -1881,7 +1891,7 @@ function lmHwDown(e) {
   try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
   _lmHwDrawing = true;
   _lmHwUndo.push(_lmHwCtx.getImageData(0, 0, _lmHwCtx.canvas.width, _lmHwCtx.canvas.height));
-  if (_lmHwUndo.length > 20) _lmHwUndo.shift();
+  if (_lmHwUndo.length > 8) _lmHwUndo.shift();   // 高精細化に伴いメモリを抑制
   _lmHwRedo.length = 0;
 
   _lmHwCtx.globalCompositeOperation = _lmHwTool === 'eraser' ? 'destination-out' : 'source-over';
@@ -1891,6 +1901,7 @@ function lmHwDown(e) {
 
   const pt = hwPos(e, _lmHwCtx.canvas);
   _lmHwLast = pt;
+  _lmHwMid = pt;
   // a dot so single taps leave a mark
   const w = lmHwWidth(e);
   _lmHwCtx.beginPath();
@@ -1908,11 +1919,14 @@ function lmHwMove(e) {
   const points = (evs && evs.length) ? evs : [e];
   for (const ev of points) {
     const pt = hwPos(ev, _lmHwCtx.canvas);
+    const mid = { x: (_lmHwLast.x + pt.x) / 2, y: (_lmHwLast.y + pt.y) / 2 };
+    // 中点を結ぶ二次ベジェで滑らかに（フリーボード風）
     _lmHwCtx.lineWidth = lmHwWidth(ev);
     _lmHwCtx.beginPath();
-    _lmHwCtx.moveTo(_lmHwLast.x, _lmHwLast.y);
-    _lmHwCtx.lineTo(pt.x, pt.y);
+    _lmHwCtx.moveTo(_lmHwMid.x, _lmHwMid.y);
+    _lmHwCtx.quadraticCurveTo(_lmHwLast.x, _lmHwLast.y, mid.x, mid.y);
     _lmHwCtx.stroke();
+    _lmHwMid = mid;
     _lmHwLast = pt;
   }
 }
@@ -2371,9 +2385,8 @@ function initFsHwCanvas() {
   if (!canvas) return;
   const w = canvas.parentElement.clientWidth  || window.innerWidth;
   const h = canvas.parentElement.clientHeight || (window.innerHeight - 56);
-  // Render at device-pixel resolution so strokes are crisp (not thin/faint)
-  // on Retina/iPad — same approach as the inline modal canvas.
-  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  // 高精細バックバッファ（インライン側と同方式・同等解像度）
+  const dpr = Math.min(4, Math.max(Math.min(window.devicePixelRatio || 1, 3), 1600 / w));
   canvas.width  = Math.round(w * dpr);
   canvas.height = Math.round(h * dpr);
   canvas.style.width  = w + 'px';
@@ -2415,7 +2428,7 @@ async function loadFsHwPage() {
   const img = new Image();
   img.onload = () => {
     if (_fsHwCtx && currentLessonKey === wantKey && _fsHwPage === wantIdx)
-      _fsHwCtx.drawImage(img, 0, 0, lw, lh);
+      _hwDrawContain(_fsHwCtx, img, lw, lh);   // 縦横比を保って配置（つぶれ/見切れ防止）
   };
   img.src = dataURL;
 }
@@ -2439,6 +2452,7 @@ function saveFsHwPage() {
 }
 
 let _fsHwLast = null;
+let _fsHwMid = null;   // スムージング用の中点
 
 function fsHwDown(e) {
   if (!_fsHwCtx) return;
@@ -2447,7 +2461,7 @@ function fsHwDown(e) {
   try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
   _fsHwDrawing = true;
   _fsHwUndo.push(_fsHwCtx.getImageData(0, 0, _fsHwCtx.canvas.width, _fsHwCtx.canvas.height));
-  if (_fsHwUndo.length > 30) _fsHwUndo.shift();
+  if (_fsHwUndo.length > 8) _fsHwUndo.shift();   // 高精細化に伴いメモリを抑制
   _fsHwRedo.length = 0;
 
   _fsHwCtx.globalCompositeOperation = _fsHwTool === 'eraser' ? 'destination-out' : 'source-over';
@@ -2457,6 +2471,7 @@ function fsHwDown(e) {
 
   const pt = hwPos(e, _fsHwCtx.canvas);
   _fsHwLast = pt;
+  _fsHwMid = pt;
   // a dot so single taps leave a mark
   const w = fsHwWidth(e);
   _fsHwCtx.beginPath();
@@ -2473,11 +2488,13 @@ function fsHwMove(e) {
   const points = (evs && evs.length) ? evs : [e];
   for (const ev of points) {
     const pt = hwPos(ev, _fsHwCtx.canvas);
+    const mid = { x: (_fsHwLast.x + pt.x) / 2, y: (_fsHwLast.y + pt.y) / 2 };
     _fsHwCtx.lineWidth = fsHwWidth(ev);
     _fsHwCtx.beginPath();
-    _fsHwCtx.moveTo(_fsHwLast.x, _fsHwLast.y);
-    _fsHwCtx.lineTo(pt.x, pt.y);
+    _fsHwCtx.moveTo(_fsHwMid.x, _fsHwMid.y);
+    _fsHwCtx.quadraticCurveTo(_fsHwLast.x, _fsHwLast.y, mid.x, mid.y);
     _fsHwCtx.stroke();
+    _fsHwMid = mid;
     _fsHwLast = pt;
   }
 }
