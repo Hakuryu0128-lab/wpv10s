@@ -2164,6 +2164,7 @@ img { max-width: 100%; display: block; }
 .abs-occ-jump:hover .abs-occ-n { color: var(--brand); }
 .abs-occ-n { display: block; font-size: 13px; font-weight: 800; color: var(--gray-800); }
 .abs-occ-d { display: block; font-size: 9.5px; color: var(--gray-400); font-weight: 600; }
+.abs-occ-p { display: block; font-size: 9.5px; color: var(--brand); font-weight: 700; }
 .abs-occ-all {
   display: block; width: 100%; margin-top: 3px; padding: 2px 0; border-radius: 6px;
   border: 1px solid color-mix(in srgb, var(--success) 45%, transparent);
@@ -2174,6 +2175,17 @@ img { max-width: 100%; display: block; }
 .abs-occ-all:active { transform: scale(.96); }
 .abs-cell { text-align: center; font-size: 15px; font-weight: 700; color: var(--success); cursor: pointer; transition: background var(--fast); }
 .abs-cell[data-sid]:hover { background: var(--brand-light); }
+.abs-name--btn { cursor: pointer; }
+.abs-name--btn:hover { background: var(--brand-light); color: var(--brand); }
+/* 出席→週案ジャンプ時に該当コマを一瞬光らせる */
+.lesson-flash { position: relative; z-index: 10; border-radius: 12px; animation: lessonFlash 2.4s ease both; }
+@keyframes lessonFlash {
+  0%   { box-shadow: 0 0 0 0 transparent; }
+  12%  { box-shadow: 0 0 0 4px var(--brand), 0 0 22px 7px color-mix(in srgb, var(--brand) 55%, transparent); }
+  60%  { box-shadow: 0 0 0 4px var(--brand), 0 0 16px 5px color-mix(in srgb, var(--brand) 35%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+@media (prefers-reduced-motion: reduce) { .lesson-flash { animation: none; box-shadow: 0 0 0 3px var(--brand); } }
 .att-edit-footer { flex-wrap: wrap; }
 .att-edit-absent { color: var(--danger); }
 .att-edit-absent:hover { background: #FEE2E2; }

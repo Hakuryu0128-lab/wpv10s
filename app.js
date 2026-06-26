@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.74';
+const APP_VERSION = '10.16.75';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -1158,6 +1158,7 @@ function appendLessonCell(grid, date, period) {
   const cell = document.createElement('div');
   cell.className = 'grid-cell' + (lesson ? ' has-lesson' : '');
   cell.setAttribute('role', 'gridcell');
+  cell.dataset.key = key;
   if (lesson) {
     const tile = document.createElement('button');
     const subjectObj = getSubjectById(lesson.subjectId);
@@ -1174,6 +1175,17 @@ function appendLessonCell(grid, date, period) {
     cell.appendChild(btn);
   }
   grid.appendChild(cell);
+}
+
+/* 週案グリッドの該当コマを一瞬光らせて知らせる（出席→週案ジャンプ時など） */
+function flashLessonCell(key) {
+  const grid = document.getElementById('weekGrid');
+  if (!grid) return;
+  const cell = grid.querySelector('.grid-cell[data-key="' + key + '"]');
+  if (!cell) return;
+  cell.classList.remove('lesson-flash'); void cell.offsetWidth; cell.classList.add('lesson-flash');
+  try { cell.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+  setTimeout(() => cell.classList.remove('lesson-flash'), 2600);
 }
 
 function renderWeekGrid() {
@@ -4060,7 +4072,7 @@ function renderAttendanceBySubject() {
   // ヘッダー：第1回（日付）… タップでその授業の週案へ
   const headCells = occ.map((o, i) =>
     `<th class="abs-occ" data-key="${escHtml(o.key)}" data-date="${escHtml(o.date)}" data-period="${escHtml(String(o.period))}">
-       <button class="abs-occ-jump" type="button" title="この授業の週案へ"><span class="abs-occ-n">${i + 1}</span><span class="abs-occ-d">${md(o.date)}</span></button>
+       <button class="abs-occ-jump" type="button" title="この授業の週案へ"><span class="abs-occ-n">${i + 1}</span><span class="abs-occ-d">${md(o.date)}</span><span class="abs-occ-p">${o.period === 'after' ? '放課後' : o.period + '限'}</span></button>
        <button class="abs-occ-all" type="button" title="この回を全員「出席」に">全員○</button>
      </th>`
   ).join('');
@@ -4083,7 +4095,7 @@ function renderAttendanceBySubject() {
       ? `<span class="abs-sum-x">欠${absentNos.length}</span><span class="abs-sum-list">（${absentNos.join('・')}回目）</span>`
       : `<span class="abs-sum-ok">皆出席</span>`;
     return `<tr>
-      <td class="abs-name"><span class="abs-num">${st.number || ''}</span>${escHtml(st.name)}</td>
+      <td class="abs-name abs-name--btn" data-sid="${st.id}" role="button" tabindex="0" title="生徒の詳細を開く"><span class="abs-num">${st.number || ''}</span>${escHtml(st.name)}</td>
       ${cells.join('')}
       <td class="abs-summary">${summary}</td></tr>`;
   }).join('');
@@ -4099,9 +4111,11 @@ function renderAttendanceBySubject() {
 
   // 回数（番号/日付）→ その授業の週へジャンプ（進度表と同じ挙動）
   container.querySelectorAll('.abs-occ-jump').forEach(btn => btn.addEventListener('click', () => {
-    const dateStr = btn.closest('.abs-occ').dataset.key.split('_')[0];
+    const key = btn.closest('.abs-occ').dataset.key;
+    const dateStr = key.split('_')[0];
     state.currentWeekStart = getWeekStart(new Date(dateStr + 'T00:00:00'));
     renderWeekTitle(); renderWeekGrid(); switchView('weekly');
+    setTimeout(() => flashLessonCell(key), 280);   // 遷移後に該当コマを光らせる
   }));
   // 「全員○」→ その回（日付＋時限）を全員出席に
   container.querySelectorAll('.abs-occ-all').forEach(btn => btn.addEventListener('click', () => {
@@ -4112,6 +4126,12 @@ function renderAttendanceBySubject() {
   // セル（○×△）をタップ → 後から出欠を変更
   container.querySelectorAll('.abs-cell[data-sid]').forEach(td => {
     const open = () => openAttEdit(td.dataset.sid, td.dataset.date, td.dataset.period, td.dataset.name, td.dataset.cls);
+    td.addEventListener('click', open);
+    td.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  });
+  // 氏名をタップ → 名簿の生徒詳細モーダルを開く
+  container.querySelectorAll('.abs-name[data-sid]').forEach(td => {
+    const open = () => openStudentModal(td.dataset.sid);
     td.addEventListener('click', open);
     td.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
   });
