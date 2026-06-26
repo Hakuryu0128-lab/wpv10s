@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.70';
+const APP_VERSION = '10.16.71';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -2938,7 +2938,7 @@ function bestProgressDefault() {
   const validSubj = new Set(state.settings.subjects.map(s => s.id));
   const counts = {};
   Object.values(state.lessons).forEach(l => {
-    if (!(l.title || (l.note && l.note.trim())) || !l.subjectId || !validSubj.has(l.subjectId)) return;
+    if (!l.subjectId || !validSubj.has(l.subjectId) || !l.className) return;   // 教科＋学級があれば対象（タイトル/メモは不問）
     const g = gradeOfClass(l.className);
     if (g == null) return;
     const k = g + '|' + l.subjectId;
@@ -2957,7 +2957,7 @@ function lessonsOfSubjectClass(subjectId, className) {
   const periodOrder = p => (p === 'after' ? 99 : parseInt(p, 10) || 0);
   const target = normClass(className);
   return Object.entries(state.lessons)
-    .filter(([, l]) => l.subjectId === subjectId && normClass(l.className) === target && (l.title || l.note))
+    .filter(([, l]) => l.subjectId === subjectId && normClass(l.className) === target)   // 教科＋学級が一致すれば表示（タイトル/メモ不問）
     .map(([key, l]) => { const [date, period] = key.split('_'); return { key, date, period, l }; })
     .sort((a, b) => a.date.localeCompare(b.date) || periodOrder(a.period) - periodOrder(b.period));
 }
