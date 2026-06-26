@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.69';
+const APP_VERSION = '10.16.70';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -4447,22 +4447,24 @@ async function _camTick() {
   if (video && video.readyState >= 2 && Date.now() >= _camCooldown && !popupOpen) {
     let text = null;
     try {
-      if (_camDetector) {
-        const codes = await _camDetector.detect(video);
-        if (codes && codes.length) text = codes[0].rawValue;
-      } else if (window.jsQR) {
+      if (_camDetector || window.jsQR) {
         const c = document.getElementById('rcpCamCanvas');
         const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
-        // 中央の正方形だけ切り出して縮小（読み取り枠に合わせる＝高速＆命中率UP）
+        // 中央の正方形だけ切り出して縮小（前面/背面どちらも・両エンジン共通で読み取り枠に合わせる）
         const crop = Math.round(Math.min(vw, vh) * 0.72);
         const sx = Math.round((vw - crop) / 2), sy = Math.round((vh - crop) / 2);
         const side = 360;
         c.width = side; c.height = side;
         const ctx = c.getContext('2d', { willReadFrequently: true });
         ctx.drawImage(video, sx, sy, crop, crop, 0, 0, side, side);
-        const img = ctx.getImageData(0, 0, side, side);
-        const r = window.jsQR(img.data, side, side, { inversionAttempts: 'dontInvert' });
-        if (r && r.data) text = r.data;
+        if (_camDetector) {
+          const codes = await _camDetector.detect(c);
+          if (codes && codes.length) text = codes[0].rawValue;
+        } else {
+          const img = ctx.getImageData(0, 0, side, side);
+          const r = window.jsQR(img.data, side, side, { inversionAttempts: 'dontInvert' });
+          if (r && r.data) text = r.data;
+        }
       }
     } catch (e) {}
     if (text) {
@@ -4512,38 +4514,44 @@ let _scanBuf = '';
 let _scanLastTs = 0;
 let _scanTimer = null;
 const SCAN_GAP_MS = 60;   // これより短い間隔の連続入力＝リーダーとみなす
-const SCAN_MIN_LEN = 3;
+const SCAN_MIN_LEN = 4;
 
 function _scanReset() { _scanBuf = ''; clearTimeout(_scanTimer); }
+function _scanCommit() {
+  const code = _scanBuf;
+  _scanReset();
+  if (code.length >= SCAN_MIN_LEN) _processScannedCode(code);
+}
 
 function _scanKeyHandler(e) {
   const ov = document.getElementById('receptionOverlay');
   if (!ov || ov.hasAttribute('hidden')) { _scanReset(); return; }   // 受付中のみ作動
-  const ae = document.activeElement;                                 // 手入力中は触らない
-  if (ae && (ae.id === 'rcpScanInput' || ae.id === 'forgotMemo')) { _scanReset(); return; }
+  const ae = document.activeElement;
+  if (ae && ae.id === 'forgotMemo') { _scanReset(); return; }        // メモの手入力には触らない
   if (e.ctrlKey || e.metaKey || e.altKey) return;
 
   const now = Date.now();
-  const fast = now - _scanLastTs < SCAN_GAP_MS;
+  const fast = now - _scanLastTs < SCAN_GAP_MS;   // 連打＝ハードウェアリーダー
   _scanLastTs = now;
 
   if (e.key === 'Enter') {
-    if (fast && _scanBuf.length >= SCAN_MIN_LEN) {
-      const code = _scanBuf;
-      _scanReset();
+    // リーダーの連打（または十分な長さ）に続くEnter＝1件として確定。
+    // 入力欄にフォーカスがあっても拾えるよう、ここで横取りする。
+    if (_scanBuf.length >= SCAN_MIN_LEN && (fast || _scanBuf.length >= 6)) {
       e.preventDefault(); e.stopPropagation();
-      _processScannedCode(code);
+      _scanCommit();
     } else {
-      _scanReset();
+      _scanReset();   // ゆっくりの手入力Enterは入力欄側の処理に任せる
     }
     return;
   }
   if (e.key && e.key.length === 1) {
     if (!fast) _scanBuf = '';            // 連打が途切れたら新しい読み取りとして開始
     _scanBuf += e.key;
-    if (fast && _scanBuf.length >= 2) { e.preventDefault(); e.stopPropagation(); }
+    if (fast && _scanBuf.length >= 2) { e.preventDefault(); e.stopPropagation(); }   // 連打中の桁が入力欄に散らばらないように
     clearTimeout(_scanTimer);
-    _scanTimer = setTimeout(_scanReset, 250);   // 中途半端なバッファは破棄
+    // Enterを送らないリーダー向け：連打が止まったら自動確定（手入力は短いので発火しない）
+    _scanTimer = setTimeout(() => { if (_scanBuf.length >= 6) _scanCommit(); else _scanReset(); }, 130);
   }
 }
 
@@ -4607,6 +4615,28 @@ function confirmPresent() {
 function nowTimeStr() {
   const d = new Date();
   return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+/* 未受付の生徒をまとめて「出席」にする（あとで欠席の人だけ取り消す運用向け） */
+async function markAllPresent() {
+  const { date, period, cls } = rcpKey();
+  const roster = studentsInClass(cls);
+  if (!roster.length) { rcpFlash('この学級に生徒がいません', true); return; }
+  const presentIds = new Set(
+    state.reception.filter(r => r.date === date && String(r.period) === String(period)).map(r => r.studentId)
+  );
+  const todo = roster.filter(s => !presentIds.has(s.id));
+  if (!todo.length) { rcpFlash('全員すでに出席です'); return; }
+  if (!(await customConfirm(`未受付の ${todo.length} 名を「出席」にします。よろしいですか？`))) return;
+  todo.forEach(st => {
+    if (!state.attendance[st.id]) state.attendance[st.id] = {};
+    state.attendance[st.id][date] = 'present';
+    const existing = state.reception.find(r => r.date === date && String(r.period) === String(period) && r.studentId === st.id);
+    if (!existing) state.reception.push({ date, period, className: st.className, studentId: st.id, name: st.name, time: nowTimeStr(), items: [] });
+  });
+  save();
+  renderReceptionLists();
+  rcpBurst(`全員出席（${todo.length}名）`, 0);
 }
 
 function renderReceptionLists() {
@@ -6589,6 +6619,7 @@ function bindEvents() {
   q('rcpCamBtn')?.addEventListener('click', startCamScan);
   q('rcpCamStop')?.addEventListener('click', stopCamScan);
   q('rcpCamFlip')?.addEventListener('click', flipCamScan);
+  q('rcpAllPresentBtn')?.addEventListener('click', markAllPresent);
   q('tutReplayBtn')?.addEventListener('click', startTutorial);
   ['rcpDate','rcpPeriod','rcpClass'].forEach(id => q(id)?.addEventListener('change', renderReceptionLists));
   // 受付中に学校を切り替える → その学校の学級に入れ替えて再表示

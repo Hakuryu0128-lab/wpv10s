@@ -2283,6 +2283,12 @@ img { max-width: 100%; display: block; }
   background: var(--bg); color: var(--text-muted); font-size: 14px; font-weight: 700; cursor: pointer;
 }
 .rcp-cam-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.rcp-allpresent-btn {
+  width: 100%; margin: 2px 0 8px; padding: 9px 12px; border-radius: 12px;
+  border: 1.5px solid var(--student); background: color-mix(in srgb, var(--student) 10%, var(--bg));
+  color: var(--student); font-size: 13px; font-weight: 800; cursor: pointer;
+}
+.rcp-allpresent-btn:active { transform: scale(.98); }
 
 /* ── 初回チュートリアル ── */
 .tut-overlay { position: fixed; inset: 0; z-index: 4000; }
