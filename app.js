@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.79';
+const APP_VERSION = '10.16.80';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -1188,6 +1188,53 @@ function flashLessonCell(key) {
   setTimeout(() => cell.classList.remove('lesson-flash'), 2600);
 }
 
+/* 行事の展開ポップオーバー（週案の行事セルをタップ → 全項目表示＆編集） */
+let _eventPop = null;
+function openEventPopover(mk, day, anchor) {
+  let pop = document.getElementById('eventPopover');
+  if (!pop) {
+    pop = document.createElement('div'); pop.id = 'eventPopover'; pop.className = 'event-popover'; pop.hidden = true;
+    document.body.appendChild(pop);
+    document.addEventListener('click', e => {
+      if (pop.hidden) return;
+      if (e.target.closest('#eventPopover') || e.target.closest('.grid-event-cell')) return;
+      _saveEventPopover(); pop.hidden = true;
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !pop.hidden) { pop.hidden = true; } });
+  }
+  _eventPop = { mk, day };
+  const dayMap = (state.events[mk] && !Array.isArray(state.events[mk])) ? state.events[mk] : {};
+  const items = String(dayMap[day] || '').split(/[\s　]+/).filter(Boolean);
+  pop.innerHTML = `
+    <div class="event-pop-title">${mk.slice(5)}/${day} の行事</div>
+    ${items.length ? `<ul class="event-pop-list">${items.map(it => `<li>${escHtml(it)}</li>`).join('')}</ul>` : '<div class="event-pop-empty">まだ行事がありません</div>'}
+    <label class="event-pop-label">編集（スペース／改行で項目を区切る）</label>
+    <textarea class="event-pop-edit" id="eventPopEdit" rows="3">${escHtml(items.join('\n'))}</textarea>
+    <div class="event-pop-actions">
+      <button type="button" class="btn-ghost" id="eventPopClose">閉じる</button>
+      <button type="button" class="btn-primary" id="eventPopSave">保存</button>
+    </div>`;
+  pop.querySelector('#eventPopSave').addEventListener('click', () => { _saveEventPopover(); pop.hidden = true; });
+  pop.querySelector('#eventPopClose').addEventListener('click', () => { pop.hidden = true; });
+  const r = anchor.getBoundingClientRect();
+  pop.hidden = false;   // 表示してからサイズを測って位置調整
+  const pw = pop.offsetWidth || 280, ph = pop.offsetHeight || 220;
+  pop.style.left = Math.max(8, Math.min(Math.round(r.left), window.innerWidth - pw - 8)) + 'px';
+  pop.style.top = Math.min(Math.round(r.bottom + 6), window.innerHeight - ph - 8) + 'px';
+}
+function _saveEventPopover() {
+  if (!_eventPop) return;
+  const { mk, day } = _eventPop;
+  const el = document.getElementById('eventPopEdit');
+  if (!el) return;
+  const v = el.value.trim().replace(/[\s　]+/g, ' ');   // 空白（半角/全角/改行）を1つのスペースに正規化
+  if (!state.events[mk] || Array.isArray(state.events[mk])) state.events[mk] = {};
+  if (v) state.events[mk][day] = v; else delete state.events[mk][day];
+  save();
+  renderWeekGrid();
+  if (state.activeView === 'events' && typeof renderEvents === 'function') renderEvents();
+}
+
 /* 時限の表示名（morning=朝 / after=放課後 / それ以外=N時限） */
 function periodLabelOf(p) {
   return p === 'morning' ? '朝' : (p === 'after' ? '放課後' : `${p}時限`);
@@ -1206,12 +1253,12 @@ function renderWeekGrid() {
 
   // Build grid-template-rows so lesson rows stretch to fill the wrapper:
   // header(曜日+日付の丸が収まる高さ) events(~3行) [periods=1fr, lunch=auto] afterschool(auto)
-  const rowSpec = ['54px', 'minmax(40px, auto)', 'minmax(40px, .7fr)'];  // header, 行事, 朝
+  const rowSpec = ['54px', 'minmax(40px, auto)', 'minmax(44px, auto)'];  // header, 行事, 朝（カードに合わせて伸びる）
   for (let p = 1; p <= periods; p++) {
     rowSpec.push('minmax(0, 1fr)');
     if (p === lunchAfter) rowSpec.push('minmax(28px, auto)'); // lunch
   }
-  rowSpec.push('minmax(40px, .7fr)'); // afterschool
+  rowSpec.push('minmax(44px, auto)'); // afterschool（カードに合わせて伸びる）
   grid.style.gridTemplateRows = rowSpec.join(' ');
 
   // ── Header row ──
@@ -1227,7 +1274,7 @@ function renderWeekGrid() {
 
   // ── 今日の行事 row (events, above period 1) ──
   const evLabel = document.createElement('div');
-  evLabel.className = 'grid-special-label';
+  evLabel.className = 'grid-special-label grid-event-label';
   evLabel.textContent = '行事';
   grid.appendChild(evLabel);
   days.forEach(date => {
@@ -1236,8 +1283,13 @@ function renderWeekGrid() {
     const txt = dayMap[date.getDate()] || '';
     const cell = document.createElement('div');
     cell.className = 'grid-event-cell' + (txt ? ' has-event' : '');
-    cell.textContent = txt;
-    cell.title = txt;
+    const items = txt.split(/[\s　]+/).filter(Boolean);   // スペース区切りで項目化
+    const MAXL = 2;
+    let inner = items.slice(0, MAXL).map(it => `<span class="ev-item">${escHtml(it)}</span>`).join('');
+    if (items.length > MAXL) inner += `<span class="ev-more">＋${items.length - MAXL}件</span>`;
+    cell.innerHTML = inner;
+    cell.title = items.join('\n');
+    cell.addEventListener('click', () => openEventPopover(mk, date.getDate(), cell));
     grid.appendChild(cell);
   });
 
@@ -2622,8 +2674,35 @@ const TODO_UNTAGGED = '__none__';
 const TAG_PALETTE = ['#4F46E5','#0EA5E9','#10B981','#F59E0B','#EC4899','#8B5CF6','#EF4444','#14B8A6','#D97706','#2563EB'];
 function tagColor(tag) {
   if (tag === TODO_UNTAGGED) return 'var(--gray-400)';
+  const custom = state.settings.tagColors && state.settings.tagColors[tag];   // ユーザー指定色を優先
+  if (custom) return custom;
   let h = 0; for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) >>> 0;
   return TAG_PALETTE[h % TAG_PALETTE.length];
+}
+
+/* タグの色を選ぶポップオーバー（カラム見出しの○をタップ） */
+const TAG_COLOR_CHOICES = ['#4F46E5','#2563EB','#0EA5E9','#0891B2','#14B8A6','#10B981','#65A30D','#F59E0B','#D97706','#EA580C','#EF4444','#E11D48','#EC4899','#DB2777','#8B5CF6','#7C3AED','#475569','#0F172A'];
+function openTagColorPicker(tag, anchor) {
+  if (tag === TODO_UNTAGGED) return;
+  let menu = document.getElementById('tagColorMenu');
+  if (!menu) {
+    menu = document.createElement('div'); menu.id = 'tagColorMenu'; menu.className = 'tag-color-menu'; menu.hidden = true;
+    document.body.appendChild(menu);
+    document.addEventListener('click', e => { if (menu.hidden) return; if (e.target.closest('#tagColorMenu') || e.target.closest('.todo-col-dot')) return; menu.hidden = true; });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') menu.hidden = true; });
+  }
+  const cur = String(tagColor(tag)).toLowerCase();
+  menu.innerHTML = `<div class="tag-color-title">「${escHtml(tag)}」の色</div><div class="tag-color-grid">` +
+    TAG_COLOR_CHOICES.map(c => `<button type="button" class="tag-color-swatch${c.toLowerCase() === cur ? ' active' : ''}" style="background:${c}" data-color="${c}" aria-label="${c}"></button>`).join('') + `</div>`;
+  menu.querySelectorAll('.tag-color-swatch').forEach(b => b.addEventListener('click', () => {
+    if (!state.settings.tagColors) state.settings.tagColors = {};
+    state.settings.tagColors[tag] = b.dataset.color;
+    save(); menu.hidden = true; renderTodoBoard(); renderTodoTagOptions();
+  }));
+  const r = anchor.getBoundingClientRect();
+  menu.style.left = Math.min(Math.round(r.left), window.innerWidth - 220) + 'px';
+  menu.style.top = Math.round(r.bottom + 6) + 'px';
+  menu.hidden = false;
 }
 
 let _doneExpanded = {};   // タグごとの「完了」セクション展開状態
@@ -2753,6 +2832,16 @@ function renderTodoBoard() {
       <div class="todo-col-body"></div>`;
     const body = col.querySelector('.todo-col-body');
     active.forEach(t => body.appendChild(createTodoCard(t)));
+
+    // 見出しの○をタップ → タグ色を変更
+    if (tag !== TODO_UNTAGGED) {
+      const dot = col.querySelector('.todo-col-dot');
+      if (dot) {
+        dot.classList.add('todo-col-dot--btn');
+        dot.title = '色を変更';
+        dot.addEventListener('click', e => { e.stopPropagation(); openTagColorPicker(tag, dot); });
+      }
+    }
 
     // このグループの「完了」を下部に折りたたみ（既定は非表示・ボタンで開閉）
     if (done.length) {

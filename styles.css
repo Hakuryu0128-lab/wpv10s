@@ -674,19 +674,64 @@ img { max-width: 100%; display: block; }
 .grid-lunch-label  { color: #B45309; background: #FFFBEB; }
 .grid-after-label  { color: #6D28D9; background: #F5F3FF; writing-mode: horizontal-tb; }
 .grid-morning-label { color: #B45309; background: #FFFBEB; writing-mode: horizontal-tb; }
+.grid-event-label { border-bottom: 2px solid var(--border); }   /* 行事セル(2px)と下線を揃える */
 
 /* 今日の行事 cells */
 .grid-event-cell {
   border-right: 1px solid var(--border);
   border-bottom: 2px solid var(--border);
-  padding: 7px 9px;
+  padding: 6px 8px;
   font-size: 12px; font-weight: 600; color: var(--gray-700);
-  line-height: 1.35;
+  line-height: 1.3;
   background: var(--bg);
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3;
-  overflow: hidden;
+  display: flex; flex-direction: column; gap: 2px;
+  overflow: hidden; cursor: pointer;
 }
 .grid-event-cell.has-event { background: color-mix(in srgb, var(--brand) 8%, var(--bg)); color: var(--brand-dark); }
+.grid-event-cell .ev-item {
+  display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.grid-event-cell .ev-more {
+  font-size: 10px; font-weight: 700; color: var(--brand);
+  opacity: .85;
+}
+
+/* 行事の展開ポップオーバー */
+.event-popover {
+  position: fixed; z-index: 1200; width: 280px; max-width: calc(100vw - 16px);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.18); padding: 14px;
+}
+.event-popover[hidden] { display: none; }
+.event-pop-title { font-size: 13px; font-weight: 800; color: var(--gray-800); margin-bottom: 8px; }
+.event-pop-list { list-style: disc; margin: 0 0 10px; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+.event-pop-list li { font-size: 13px; color: var(--gray-700); }
+.event-pop-empty { font-size: 12px; color: var(--gray-400); margin-bottom: 10px; }
+.event-pop-label { display: block; font-size: 11px; font-weight: 700; color: var(--gray-500); margin-bottom: 4px; }
+.event-pop-edit {
+  width: 100%; box-sizing: border-box; resize: vertical; min-height: 56px;
+  border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px;
+  font-size: 13px; font-family: inherit; color: var(--gray-800); background: var(--gray-50);
+}
+.event-pop-edit:focus { outline: none; border-color: var(--brand); background: #fff; }
+.event-pop-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+
+/* タグ色ピッカー */
+.tag-color-menu {
+  position: fixed; z-index: 1200; width: 208px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.18); padding: 12px;
+}
+.tag-color-menu[hidden] { display: none; }
+.tag-color-title { font-size: 12px; font-weight: 800; color: var(--gray-700); margin-bottom: 8px; }
+.tag-color-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.tag-color-swatch {
+  width: 24px; height: 24px; border-radius: 50%; border: 2px solid transparent;
+  cursor: pointer; padding: 0; box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+.tag-color-swatch.active { border-color: var(--gray-800); box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--gray-800); }
+.todo-col-dot--btn { cursor: pointer; }
+.todo-col-dot--btn:hover { transform: scale(1.25); }
 
 /* 昼休み cells */
 .grid-lunch-cell {
@@ -1184,7 +1229,7 @@ img { max-width: 100%; display: block; }
   max-height: 100%;
   display: flex; flex-direction: column;
   border-radius: 22px;
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  background: color-mix(in srgb, var(--col-color, var(--brand)) 13%, color-mix(in srgb, var(--bg) 72%, transparent));
   backdrop-filter: blur(22px) saturate(1.6);
   -webkit-backdrop-filter: blur(22px) saturate(1.6);
   border: 1px solid color-mix(in srgb, #fff 50%, transparent);
@@ -1212,7 +1257,7 @@ img { max-width: 100%; display: block; }
 .todo-card {
   display: flex; align-items: flex-start; gap: 10px;
   padding: 12px 12px; border-radius: 14px;
-  background: color-mix(in srgb, var(--col-color, var(--brand)) 9%, color-mix(in srgb, var(--bg) 74%, transparent));
+  background: color-mix(in srgb, var(--bg) 88%, #fff);
   border: 1px solid color-mix(in srgb, #fff 40%, transparent);
   box-shadow: 0 2px 8px rgba(16,24,40,.05), inset 0 1px 0 rgba(255,255,255,.5);
   transition: transform var(--fast), box-shadow var(--fast), opacity var(--fast);
