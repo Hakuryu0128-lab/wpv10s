@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.80';
+const APP_VERSION = '10.16.81';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -1152,11 +1152,11 @@ function lessonTileHtml(lesson) {
 }
 
 /* Append a lesson cell (period can be a number or 'after') */
-function appendLessonCell(grid, date, period) {
+function appendLessonCell(grid, date, period, slim) {
   const key = lessonKey(date, period);
   const lesson = state.lessons[key];
   const cell = document.createElement('div');
-  cell.className = 'grid-cell' + (lesson ? ' has-lesson' : '');
+  cell.className = 'grid-cell' + (lesson ? ' has-lesson' : '') + (slim ? ' grid-cell--slim' : '');
   cell.setAttribute('role', 'gridcell');
   cell.dataset.key = key;
   if (lesson) {
@@ -1251,14 +1251,15 @@ function renderWeekGrid() {
 
   grid.innerHTML = '';
 
-  // Build grid-template-rows so lesson rows stretch to fill the wrapper:
-  // header(曜日+日付の丸が収まる高さ) events(~3行) [periods=1fr, lunch=auto] afterschool(auto)
-  const rowSpec = ['54px', 'minmax(40px, auto)', 'minmax(44px, auto)'];  // header, 行事, 朝（カードに合わせて伸びる）
+  // Build grid-template-rows.
+  // 1〜6時限（=1fr）を主役に最大化し、行事・朝・放課後・昼は必要最小限に固定する。
+  //   header / 行事(2行ぴったり固定) / 朝(狭め) / [periods=1fr, 昼=細] / 放課後(狭め)
+  const rowSpec = ['54px', '44px', 'minmax(34px, auto)'];  // header, 行事(2行固定), 朝(狭め)
   for (let p = 1; p <= periods; p++) {
     rowSpec.push('minmax(0, 1fr)');
-    if (p === lunchAfter) rowSpec.push('minmax(28px, auto)'); // lunch
+    if (p === lunchAfter) rowSpec.push('minmax(22px, auto)'); // 昼(細)
   }
-  rowSpec.push('minmax(44px, auto)'); // afterschool（カードに合わせて伸びる）
+  rowSpec.push('minmax(34px, auto)'); // 放課後(狭め)
   grid.style.gridTemplateRows = rowSpec.join(' ');
 
   // ── Header row ──
@@ -1284,9 +1285,9 @@ function renderWeekGrid() {
     const cell = document.createElement('div');
     cell.className = 'grid-event-cell' + (txt ? ' has-event' : '');
     const items = txt.split(/[\s　]+/).filter(Boolean);   // スペース区切りで項目化
-    const MAXL = 2;
+    const MAXL = 2;   // 常に2行。あふれたら右下に「＋N」
     let inner = items.slice(0, MAXL).map(it => `<span class="ev-item">${escHtml(it)}</span>`).join('');
-    if (items.length > MAXL) inner += `<span class="ev-more">＋${items.length - MAXL}件</span>`;
+    if (items.length > MAXL) inner += `<span class="ev-more">＋${items.length - MAXL}</span>`;
     cell.innerHTML = inner;
     cell.title = items.join('\n');
     cell.addEventListener('click', () => openEventPopover(mk, date.getDate(), cell));
@@ -1298,7 +1299,7 @@ function renderWeekGrid() {
   amLabel.className = 'grid-special-label grid-morning-label';
   amLabel.textContent = '朝';
   grid.appendChild(amLabel);
-  days.forEach(date => appendLessonCell(grid, date, 'morning'));
+  days.forEach(date => appendLessonCell(grid, date, 'morning', true));
 
   // ── Period rows (insert lunch after lunchAfter) ──
   for (let p = 1; p <= periods; p++) {
@@ -1340,7 +1341,7 @@ function renderWeekGrid() {
   asLabel.className = 'grid-special-label grid-after-label';
   asLabel.textContent = '放課後';
   grid.appendChild(asLabel);
-  days.forEach(date => appendLessonCell(grid, date, 'after'));
+  days.forEach(date => appendLessonCell(grid, date, 'after', true));
 
   /* Current-time indicator bar */
   renderCurrentTimeBar(grid, periods);

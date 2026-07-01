@@ -673,27 +673,30 @@ img { max-width: 100%; display: block; }
 }
 .grid-lunch-label  { color: #B45309; background: #FFFBEB; }
 .grid-after-label  { color: #6D28D9; background: #F5F3FF; writing-mode: horizontal-tb; }
-.grid-morning-label { color: #B45309; background: #FFFBEB; writing-mode: horizontal-tb; }
+.grid-morning-label { color: #6D28D9; background: #F5F3FF; writing-mode: horizontal-tb; }  /* 放課後と同色 */
 .grid-event-label { border-bottom: 2px solid var(--border); }   /* 行事セル(2px)と下線を揃える */
 
 /* 今日の行事 cells */
 .grid-event-cell {
   border-right: 1px solid var(--border);
   border-bottom: 2px solid var(--border);
-  padding: 6px 8px;
+  padding: 5px 8px;
   font-size: 12px; font-weight: 600; color: var(--gray-700);
-  line-height: 1.3;
+  line-height: 1.35;
   background: var(--bg);
-  display: flex; flex-direction: column; gap: 2px;
+  display: flex; flex-direction: column; gap: 1px;
   overflow: hidden; cursor: pointer;
+  position: relative;   /* ＋N バッジの基準 */
 }
 .grid-event-cell.has-event { background: color-mix(in srgb, var(--brand) 8%, var(--bg)); color: var(--brand-dark); }
 .grid-event-cell .ev-item {
   display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.grid-event-cell .ev-more {
-  font-size: 10px; font-weight: 700; color: var(--brand);
-  opacity: .85;
+.grid-event-cell .ev-more {   /* 欄の右下に「＋N」 */
+  position: absolute; right: 5px; bottom: 3px;
+  font-size: 10px; font-weight: 800; color: var(--brand);
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  padding: 0 4px; border-radius: 7px; pointer-events: none;
 }
 
 /* 行事の展開ポップオーバー */
@@ -874,6 +877,20 @@ img { max-width: 100%; display: block; }
     color: var(--gray-300);
   }
 }
+
+/* 朝・放課後：狭い行に収まるコンパクトカード（1行分の高さ） */
+.grid-cell--slim { padding: 3px; }
+.grid-cell--slim .lesson-tile {
+  padding: 3px 8px; border-radius: 10px; gap: 0;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--tile-color, var(--brand)) 12%, transparent);
+}
+.grid-cell--slim .lesson-tile::before { top: 5px; bottom: 5px; }
+.grid-cell--slim .tile-head { align-items: center; }
+.grid-cell--slim .tile-subject { font-size: 14px; }
+.grid-cell--slim .tile-class { font-size: 10.5px; padding: 1px 7px; }
+.grid-cell--slim .tile-title { display: none; }
+.grid-cell--slim .tile-icons { display: none; }
+.grid-cell--slim .empty-cell-btn { font-size: 16px; }
 
 /* ── Context Panel ───────────────────────────────────────── */
 .context-panel {
