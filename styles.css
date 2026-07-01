@@ -1189,7 +1189,6 @@ img { max-width: 100%; display: block; }
   -webkit-backdrop-filter: blur(22px) saturate(1.6);
   border: 1px solid color-mix(in srgb, #fff 50%, transparent);
   box-shadow: 0 10px 30px rgba(16,24,40,.10), inset 0 1px 0 rgba(255,255,255,.55);
-  animation: txPopIn .4s cubic-bezier(.34,1.56,.64,1) both;
 }
 .todo-col--done { flex-basis: 240px; opacity: .85; }
 .todo-col-head {
@@ -1213,7 +1212,7 @@ img { max-width: 100%; display: block; }
 .todo-card {
   display: flex; align-items: flex-start; gap: 10px;
   padding: 12px 12px; border-radius: 14px;
-  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  background: color-mix(in srgb, var(--col-color, var(--brand)) 9%, color-mix(in srgb, var(--bg) 74%, transparent));
   border: 1px solid color-mix(in srgb, #fff 40%, transparent);
   box-shadow: 0 2px 8px rgba(16,24,40,.05), inset 0 1px 0 rgba(255,255,255,.5);
   transition: transform var(--fast), box-shadow var(--fast), opacity var(--fast);
@@ -2817,6 +2816,23 @@ img { max-width: 100%; display: block; }
   background: var(--bg); color: var(--text-muted); font-size: 10px; cursor: pointer;
 }
 .todo-tag-caret:hover { background: var(--bg-subtle); }
+/* タグ入力とプルダウン矢印を1つのボックス内に */
+.todo-tag-wrap { position: relative; flex-shrink: 0; display: inline-flex; }
+.todo-tag-wrap .todo-compose-tag { width: 120px; padding-right: 30px; }
+.todo-tag-wrap .todo-tag-caret {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  width: 22px; min-height: 0; align-self: auto;
+  border: none; background: none; color: color-mix(in srgb, var(--brand) 60%, transparent);
+}
+.todo-tag-wrap .todo-tag-caret:hover { background: none; color: var(--brand); }
+/* ToDo カードの並び替えハンドル（未締切のみ） */
+.todo-drag {
+  width: 20px; flex-shrink: 0; border: none; background: none; cursor: grab;
+  color: var(--gray-300); font-size: 15px; line-height: 1; align-self: center; touch-action: none; padding: 0;
+}
+.todo-drag:hover { color: var(--gray-500); }
+.todo-drag:active { cursor: grabbing; }
+.todo-card--dragging { opacity: .85; box-shadow: 0 12px 26px rgba(16,24,40,.2); }
 .todo-tagmenu {
   position: fixed; z-index: 6000; max-height: 50vh; overflow-y: auto;
   background: var(--bg); border: 1px solid var(--border); border-radius: 12px;

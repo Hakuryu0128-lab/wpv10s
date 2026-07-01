@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.78';
+const APP_VERSION = '10.16.79';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -2784,13 +2784,15 @@ function todoSort(a, b) {
   const da = a.due ? daysUntil(a.due) : Infinity;
   const db = b.due ? daysUntil(b.due) : Infinity;
   if (da !== db) return da - db;
-  return (a.createdAt || 0) - (b.createdAt || 0);
+  return (a.order ?? a.createdAt ?? 0) - (b.order ?? b.createdAt ?? 0);   // 締切なしは手動並び順（既定=作成順）
 }
 
 function createTodoCard(todo) {
+  const reorderable = !todo.done && !todo.due;   // 締切なしの未完了だけ手動並び替え可
   const card = document.createElement('div');
   card.className = 'todo-card' + (todo.done ? ' todo-card--done' : '');
   card.dataset.todoId = todo.id;
+  if (reorderable) card.dataset.reorder = '1';
 
   let meta = '';
   if (todo.done) {
@@ -2805,7 +2807,10 @@ function createTodoCard(todo) {
     meta = `<span class="todo-due ${cls}">📅 ${label}</span>`;
   }
 
+  const dragHandle = reorderable ? `<button class="todo-drag" aria-label="並び替え" title="ドラッグで並び替え">⠿</button>` : '';
+
   card.innerHTML = `
+    ${dragHandle}
     <button class="todo-check ${todo.done ? 'checked' : ''}" role="checkbox" aria-checked="${todo.done}" aria-label="${escHtml(todo.text)}"></button>
     <div class="todo-card-body">
       <span class="todo-card-text ${todo.done ? 'done' : ''}">${escHtml(todo.text)}</span>
@@ -2820,7 +2825,64 @@ function createTodoCard(todo) {
   card.querySelector('.todo-check').addEventListener('click', () => toggleTodo(todo.id));
   card.querySelector('.todo-card-edit').addEventListener('click', () => openTodoEdit(todo.id));
   card.querySelector('.todo-card-del').addEventListener('click', () => deleteTodo(todo.id));
+  card.querySelector('.todo-drag')?.addEventListener('pointerdown', e => startTodoDrag(e, card));
   return card;
+}
+
+/* ── ToDo 並び替え（締切なしカードをドラッグ）──
+   締切ありは締切順で上部固定。締切なしは order（既定=createdAt）で並び、ドラッグで更新。 */
+let _todoDrag = null;
+function _todoById(id) { return state.todos.find(t => t.id === id); }
+function startTodoDrag(e, card) {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  e.preventDefault(); e.stopPropagation();
+  _todoDrag = { card, body: card.parentElement };
+  card.classList.add('todo-card--dragging');
+  try { e.target.setPointerCapture?.(e.pointerId); } catch (_) {}
+  document.addEventListener('pointermove', _onTodoDragMove);
+  document.addEventListener('pointerup', _endTodoDrag);
+  document.addEventListener('pointercancel', _endTodoDrag);
+}
+function _onTodoDragMove(e) {
+  if (!_todoDrag) return;
+  e.preventDefault();
+  const { card, body } = _todoDrag;
+  const y = e.clientY;
+  const sibs = [...body.querySelectorAll('.todo-card[data-reorder="1"]')].filter(c => c !== card);
+  let target = null;
+  for (const s of sibs) { const r = s.getBoundingClientRect(); if (y < r.top + r.height / 2) { target = s; break; } }
+  if (target) { if (card.nextSibling !== target) body.insertBefore(card, target); }
+  else {
+    const last = sibs[sibs.length - 1];
+    const doneSec = body.querySelector('.todo-done-sec');
+    if (last) { if (last.nextSibling !== card) body.insertBefore(card, last.nextSibling); }
+    else if (doneSec) body.insertBefore(card, doneSec);
+    else body.appendChild(card);
+  }
+}
+function _endTodoDrag() {
+  document.removeEventListener('pointermove', _onTodoDragMove);
+  document.removeEventListener('pointerup', _endTodoDrag);
+  document.removeEventListener('pointercancel', _endTodoDrag);
+  if (!_todoDrag) return;
+  const { card, body } = _todoDrag;
+  card.classList.remove('todo-card--dragging');
+  const cards = [...body.querySelectorAll('.todo-card[data-reorder="1"]')];
+  const idx = cards.indexOf(card);
+  const moved = _todoById(card.dataset.todoId);
+  if (moved) {
+    const prev = idx > 0 ? _todoById(cards[idx - 1].dataset.todoId) : null;
+    const next = idx < cards.length - 1 ? _todoById(cards[idx + 1].dataset.todoId) : null;
+    const po = prev ? (prev.order ?? prev.createdAt ?? 0) : null;
+    const no = next ? (next.order ?? next.createdAt ?? 0) : null;
+    if (po != null && no != null) moved.order = (po + no) / 2;
+    else if (po != null) moved.order = po + 1000;
+    else if (no != null) moved.order = no - 1000;
+    else moved.order = moved.createdAt || Date.now();
+    save();
+  }
+  _todoDrag = null;
+  renderTodoBoard();
 }
 
 /* ToDo を後から編集（内容・期限・タグ） */
