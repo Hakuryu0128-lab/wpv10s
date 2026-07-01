@@ -7,7 +7,7 @@
 /* ── Constants ──────────────────────────────────────────── */
 /* Single source of truth for the version. Keep in sync with the ?v= query in
    index.html and CACHE_NAME in service-worker.js. Shown in 設定 → このアプリ. */
-const APP_VERSION = '10.16.77';
+const APP_VERSION = '10.16.78';
 const DAYS = ['月', '火', '水', '木', '金']; /* Mon–Fri only */
 const DEFAULT_PERIODS = 6;
 const ACTIVATION_CODES = ['SHUAN-2026'];
@@ -1188,6 +1188,11 @@ function flashLessonCell(key) {
   setTimeout(() => cell.classList.remove('lesson-flash'), 2600);
 }
 
+/* 時限の表示名（morning=朝 / after=放課後 / それ以外=N時限） */
+function periodLabelOf(p) {
+  return p === 'morning' ? '朝' : (p === 'after' ? '放課後' : `${p}時限`);
+}
+
 function renderWeekGrid() {
   const grid = document.getElementById('weekGrid');
   const periods = state.settings.periodsCount;
@@ -1201,7 +1206,7 @@ function renderWeekGrid() {
 
   // Build grid-template-rows so lesson rows stretch to fill the wrapper:
   // header(曜日+日付の丸が収まる高さ) events(~3行) [periods=1fr, lunch=auto] afterschool(auto)
-  const rowSpec = ['54px', 'minmax(40px, auto)'];
+  const rowSpec = ['54px', 'minmax(40px, auto)', 'minmax(40px, .7fr)'];  // header, 行事, 朝
   for (let p = 1; p <= periods; p++) {
     rowSpec.push('minmax(0, 1fr)');
     if (p === lunchAfter) rowSpec.push('minmax(28px, auto)'); // lunch
@@ -1235,6 +1240,13 @@ function renderWeekGrid() {
     cell.title = txt;
     grid.appendChild(cell);
   });
+
+  // ── 朝 row (before period 1) ──
+  const amLabel = document.createElement('div');
+  amLabel.className = 'grid-special-label grid-morning-label';
+  amLabel.textContent = '朝';
+  grid.appendChild(amLabel);
+  days.forEach(date => appendLessonCell(grid, date, 'morning'));
 
   // ── Period rows (insert lunch after lunchAfter) ──
   for (let p = 1; p <= periods; p++) {
@@ -1451,7 +1463,7 @@ function openLessonModal(key, date, period) {
   document.getElementById('lessonClass').value = lesson.className || '';
 
   const dayIdx = [0,1,2,3,4,5].find(i => formatDate(addDays(state.currentWeekStart, i)) === key.split('_')[0]) ?? 0;
-  const periodLabel = (period === 'after') ? '放課後' : `${period}時限`;
+  const periodLabel = periodLabelOf(period);
   // 同じ教科・学級の中で何回目か（保存済みの内容に基づく）
   let occInfo = '';
   if (lesson.subjectId && lesson.className) {
@@ -2614,7 +2626,8 @@ function tagColor(tag) {
   return TAG_PALETTE[h % TAG_PALETTE.length];
 }
 
-let _showDoneTodos = false;
+let _doneExpanded = {};   // タグごとの「完了」セクション展開状態
+let _editingTodoId = null;
 
 /* entry point from switchView */
 function renderTodoView() {
@@ -2694,19 +2707,18 @@ function renderTodoBoard() {
   const board = document.getElementById('todoBoard');
   if (!board) { updatePanelTodo(); return; }
 
-  const active = state.todos.filter(t => !t.done);
-  // collect tag columns that have at least one incomplete todo
-  const colMap = new Map();   // tag -> todos[]
-  active.forEach(t => {
+  // タグごとに 未完了 / 完了 を集約
+  const byTag = new Map();   // tag -> { active:[], done:[] }
+  state.todos.forEach(t => {
     const tags = (t.tags && t.tags.length) ? t.tags : [TODO_UNTAGGED];
     tags.forEach(tag => {
-      if (!colMap.has(tag)) colMap.set(tag, []);
-      colMap.get(tag).push(t);
+      if (!byTag.has(tag)) byTag.set(tag, { active: [], done: [] });
+      (t.done ? byTag.get(tag).done : byTag.get(tag).active).push(t);
     });
   });
 
   // order: untagged first, then alphabetical
-  const cols = [...colMap.keys()].sort((a, b) => {
+  const cols = [...byTag.keys()].sort((a, b) => {
     if (a === TODO_UNTAGGED) return -1;
     if (b === TODO_UNTAGGED) return 1;
     return a.localeCompare(b, 'ja');
@@ -2720,13 +2732,14 @@ function renderTodoBoard() {
       <p class="empty-lead">やることはありません</p>
       <p class="settings-hint">上の欄から追加してください。タグを付けると分類カラムができます。</p>
     </div>`;
-    renderTodoDoneColumn(board);
     updatePanelTodo();
     return;
   }
 
   cols.forEach(tag => {
-    const todos = colMap.get(tag).slice().sort(todoSort);
+    const { active, done } = byTag.get(tag);
+    active.sort(todoSort);
+    done.sort((a, b) => (b.doneAt || b.createdAt || 0) - (a.doneAt || a.createdAt || 0));  // 新しく完了した順
     const col = document.createElement('div');
     col.className = 'todo-col';
     col.style.setProperty('--col-color', tagColor(tag));
@@ -2735,15 +2748,34 @@ function renderTodoBoard() {
       <div class="todo-col-head">
         <span class="todo-col-dot"></span>
         <span class="todo-col-name">${escHtml(label)}</span>
-        <span class="todo-col-count">${todos.length}</span>
+        <span class="todo-col-count">${active.length}</span>
       </div>
       <div class="todo-col-body"></div>`;
     const body = col.querySelector('.todo-col-body');
-    todos.forEach(t => body.appendChild(createTodoCard(t)));
+    active.forEach(t => body.appendChild(createTodoCard(t)));
+
+    // このグループの「完了」を下部に折りたたみ（既定は非表示・ボタンで開閉）
+    if (done.length) {
+      const expanded = !!_doneExpanded[tag];
+      const sec = document.createElement('div');
+      sec.className = 'todo-done-sec';
+      sec.innerHTML = `
+        <button class="todo-done-toggle" aria-expanded="${expanded}">
+          <span class="todo-done-caret">▶</span>
+          <span class="todo-done-label">完了</span>
+          <span class="todo-col-count">${done.length}</span>
+        </button>
+        <div class="todo-done-body"></div>`;
+      const dbody = sec.querySelector('.todo-done-body');
+      if (expanded) done.forEach(t => dbody.appendChild(createTodoCard(t)));
+      sec.querySelector('.todo-done-toggle').addEventListener('click', () => {
+        _doneExpanded[tag] = !_doneExpanded[tag]; renderTodoBoard();
+      });
+      body.appendChild(sec);
+    }
     board.appendChild(col);
   });
 
-  renderTodoDoneColumn(board);
   updatePanelTodo();
 }
 
@@ -2755,54 +2787,71 @@ function todoSort(a, b) {
   return (a.createdAt || 0) - (b.createdAt || 0);
 }
 
-function renderTodoDoneColumn(board) {
-  const done = state.todos.filter(t => t.done);
-  if (!done.length) return;
-  const col = document.createElement('div');
-  col.className = 'todo-col todo-col--done';
-  col.innerHTML = `
-    <button class="todo-col-head todo-done-toggle" aria-expanded="${_showDoneTodos}">
-      <span class="todo-done-caret">▶</span>
-      <span class="todo-col-name">完了したもの</span>
-      <span class="todo-col-count">${done.length}</span>
-    </button>
-    <div class="todo-col-body"></div>`;
-  const body = col.querySelector('.todo-col-body');
-  if (_showDoneTodos) {
-    done.slice().reverse().forEach(t => { const c = createTodoCard(t); c.classList.add('todo-card--done'); body.appendChild(c); });
-  }
-  col.querySelector('.todo-done-toggle').addEventListener('click', () => { _showDoneTodos = !_showDoneTodos; renderTodoBoard(); });
-  board.appendChild(col);
-}
-
 function createTodoCard(todo) {
   const card = document.createElement('div');
   card.className = 'todo-card' + (todo.done ? ' todo-card--done' : '');
   card.dataset.todoId = todo.id;
 
-  let dueBadge = '';
-  if (todo.due) {
+  let meta = '';
+  if (todo.done) {
+    if (todo.doneAt) { const d = new Date(todo.doneAt); meta = `<span class="todo-doneat">✓ ${d.getMonth()+1}/${d.getDate()} 完了</span>`; }
+  } else if (todo.due) {
     const d = daysUntil(todo.due);
     let cls = 'due-far', label;
     if (d < 0)        { cls = 'due-over';  label = `${-d}日超過`; }
     else if (d === 0) { cls = 'due-today'; label = '今日'; }
     else if (d <= 5)  { cls = 'due-soon';  label = `あと${d}日`; }
     else              { cls = 'due-far';   label = `${todo.due.slice(5).replace('-','/')}`; }
-    dueBadge = `<span class="todo-due ${cls}">📅 ${label}</span>`;
+    meta = `<span class="todo-due ${cls}">📅 ${label}</span>`;
   }
 
   card.innerHTML = `
     <button class="todo-check ${todo.done ? 'checked' : ''}" role="checkbox" aria-checked="${todo.done}" aria-label="${escHtml(todo.text)}"></button>
     <div class="todo-card-body">
       <span class="todo-card-text ${todo.done ? 'done' : ''}">${escHtml(todo.text)}</span>
-      ${dueBadge}
+      ${meta}
     </div>
+    <button class="todo-card-edit" aria-label="編集" title="編集">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M10.5 2.5l3 3L6 13l-3.5.5L3 10l7.5-7.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+    </button>
     <button class="todo-card-del" aria-label="削除">
       <svg width="15" height="15" viewBox="0 0 14 14" fill="none"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
     </button>`;
   card.querySelector('.todo-check').addEventListener('click', () => toggleTodo(todo.id));
+  card.querySelector('.todo-card-edit').addEventListener('click', () => openTodoEdit(todo.id));
   card.querySelector('.todo-card-del').addEventListener('click', () => deleteTodo(todo.id));
   return card;
+}
+
+/* ToDo を後から編集（内容・期限・タグ） */
+function openTodoEdit(id) {
+  const t = state.todos.find(x => x.id === id);
+  if (!t) return;
+  _editingTodoId = id;
+  const q = i => document.getElementById(i);
+  q('todoEditText').value = t.text || '';
+  q('todoEditDate').value = t.due || '';
+  q('todoEditTag').value  = (t.tags || []).join(' ');
+  q('todoEditBackdrop').removeAttribute('hidden');
+  setTimeout(() => q('todoEditText')?.focus(), 40);
+}
+function closeTodoEdit() {
+  document.getElementById('todoEditBackdrop')?.setAttribute('hidden', '');
+  _editingTodoId = null;
+}
+function saveTodoEdit() {
+  const t = state.todos.find(x => x.id === _editingTodoId);
+  if (!t) { closeTodoEdit(); return; }
+  const q = i => document.getElementById(i);
+  const text = (q('todoEditText').value || '').trim();
+  if (!text) { showToast('内容を入力してください'); return; }
+  t.text = text;
+  t.due  = q('todoEditDate').value || '';
+  t.tags = (q('todoEditTag').value || '').split(/[,、\s#]+/).map(s => s.trim()).filter(Boolean);
+  save();
+  closeTodoEdit();
+  renderTodoBoard();
+  renderTodoTagOptions();
 }
 
 /* Add from the compose form */
@@ -2828,6 +2877,7 @@ function toggleTodo(id) {
   const t = state.todos.find(x => x.id === id);
   if (!t) return;
   t.done = !t.done;
+  t.doneAt = t.done ? Date.now() : null;   // 完了日時を記録（後から見返せるように）
   save();
   renderTodoBoard();
 }
@@ -4096,7 +4146,7 @@ function renderAttendanceBySubject() {
   // ヘッダー：第1回（日付）… タップでその授業の週案へ
   const headCells = occ.map((o, i) =>
     `<th class="abs-occ" data-key="${escHtml(o.key)}" data-date="${escHtml(o.date)}" data-period="${escHtml(String(o.period))}">
-       <button class="abs-occ-jump" type="button" title="この授業の週案へ"><span class="abs-occ-n">${i + 1}</span><span class="abs-occ-d">${md(o.date)}</span><span class="abs-occ-p">${o.period === 'after' ? '放課後' : o.period + '限'}</span></button>
+       <button class="abs-occ-jump" type="button" title="この授業の週案へ"><span class="abs-occ-n">${i + 1}</span><span class="abs-occ-d">${md(o.date)}</span><span class="abs-occ-p">${periodLabelOf(o.period)}</span></button>
        <button class="abs-occ-all" type="button" title="この回を全員「出席」に">全員○</button>
      </th>`
   ).join('');
@@ -4172,7 +4222,7 @@ async function markSessionPresent(date, period) {
     state.reception.filter(r => r.date === date && String(r.period) === String(period)).map(r => r.studentId)
   );
   const todo = roster.filter(s => !presentIds.has(s.id));
-  const label = `${date.slice(5).replace('-', '/')}・${period === 'after' ? '放課後' : period + '限'}`;
+  const label = `${date.slice(5).replace('-', '/')}・${periodLabelOf(period)}`;
   if (!todo.length) { showToast('この回はすでに全員出席です'); return; }
   if (!(await customConfirm(`${label} を全員「出席」にします。よろしいですか？\n（このあと欠席の人だけ × に直してください）`))) return;
   todo.forEach(st => {
@@ -4192,7 +4242,7 @@ function openAttEdit(studentId, date, period, name, className) {
   const rec = state.reception.find(r => r.date === date && String(r.period) === String(period) && r.studentId === studentId);
   const curItems = new Set(rec ? (rec.items || []) : []);
   document.getElementById('attEditName').textContent = name || '';
-  document.getElementById('attEditInfo').textContent = `${className || ''}　${date.slice(5).replace('-', '/')}・${period === 'after' ? '放課後' : period + '限'}`;
+  document.getElementById('attEditInfo').textContent = `${className || ''}　${date.slice(5).replace('-', '/')}・${periodLabelOf(period)}`;
   const grid = document.getElementById('attEditGrid');
   grid.innerHTML = getForgotItems().map(it =>
     `<button type="button" class="forgot-item${curItems.has(it) ? ' selected' : ''}" data-item="${escHtml(it)}">${escHtml(it)}</button>`).join('');
@@ -5550,7 +5600,7 @@ async function detailCardHtmls() {
   const items = [];
   for (let d = 0; d < 5; d++) {
     const date = addDays(start, d);
-    const periodList = [];
+    const periodList = ['morning'];
     for (let p = 1; p <= state.settings.periodsCount; p++) periodList.push(p);
     periodList.push('after');
     for (const p of periodList) {
@@ -5574,7 +5624,7 @@ async function detailCardHtmls() {
   return items.map(({ d, date, p, l }) => {
     const subj = getSubjectById(l.subjectId)?.name || '';
     const color = getSubjectColor(l.subjectId);
-    const periodLabel = p === 'after' ? '放課後' : `${p}限`;
+    const periodLabel = periodLabelOf(p);
     const tags = (l.tags || []).map(t => `<span class="pd-tag">${escHtml(t)}</span>`).join('');
     const hw = (l.hwPages || []).filter(Boolean).map(ref => hwSrc[ref] ? `<img src="${hwSrc[ref]}" alt="手書き">` : '').join('');
     const photos = (l.photos || []).map(ph => photoSrc[ph.id] ? `<img src="${photoSrc[ph.id]}" alt="写真">` : '').join('');
@@ -6739,6 +6789,9 @@ function bindEvents() {
   q('rcpCamStop')?.addEventListener('click', stopCamScan);
   q('rcpCamFlip')?.addEventListener('click', flipCamScan);
   q('tutReplayBtn')?.addEventListener('click', startTutorial);
+  q('todoEditSave')?.addEventListener('click', saveTodoEdit);
+  q('todoEditCancel')?.addEventListener('click', closeTodoEdit);
+  q('todoEditBackdrop')?.addEventListener('click', e => { if (e.target === e.currentTarget) closeTodoEdit(); });
   ['rcpDate','rcpPeriod','rcpClass'].forEach(id => q(id)?.addEventListener('change', renderReceptionLists));
   // 受付中に学校を切り替える → その学校の学級に入れ替えて再表示
   q('rcpSchool')?.addEventListener('change', e => {

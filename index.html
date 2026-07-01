@@ -15,7 +15,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css?v=10.16.77" />
+  <link rel="stylesheet" href="styles.css?v=10.16.78" />
   <title>WEEKY</title>
 </head>
 <body>
@@ -1114,6 +1114,25 @@
   </div>
 </div>
 
+<!-- ToDo 編集モーダル -->
+<div class="modal-backdrop" id="todoEditBackdrop" role="dialog" aria-modal="true" hidden>
+  <div class="modal modal--dialog">
+    <div class="modal-body">
+      <h3 class="todo-edit-title">ToDo を編集</h3>
+      <label class="todo-edit-label">内容</label>
+      <input type="text" id="todoEditText" class="form-input" />
+      <label class="todo-edit-label">期限</label>
+      <input type="date" id="todoEditDate" class="form-input" />
+      <label class="todo-edit-label">タグ（スペース区切りで複数可）</label>
+      <input type="text" id="todoEditTag" class="form-input" placeholder="例：学年 提出" />
+    </div>
+    <footer class="modal-footer">
+      <button class="btn-ghost" id="todoEditCancel">キャンセル</button>
+      <button class="btn-primary" id="todoEditSave">保存</button>
+    </footer>
+  </div>
+</div>
+
 <!-- ═══ QR受付（出席）オーバーレイ ═══ -->
 <div class="reception-overlay" id="receptionOverlay" hidden>
   <header class="rcp-header">
@@ -1286,6 +1305,6 @@
 <script src="vendor/html2canvas.min.js"></script>
 <script async src="https://tally.so/widgets/embed.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-<script src="app.js?v=10.16.77"></script>
+<script src="app.js?v=10.16.78"></script>
 </body>
 </html>
