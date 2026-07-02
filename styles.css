@@ -3601,6 +3601,9 @@ img { max-width: 100%; display: block; }
   .nav-item { min-height: 44px; }
   .week-nav-btn { width: 44px; height: 44px; }
   .grid-cell { min-height: 80px; }
+  /* 朝・放課後のコンパクト行はタッチ端末でも狭いまま（80px強制の対象外）。
+     これが無いと iPad で朝/放課後が80pxに膨らみ、1〜6限が潰れて枠がずれて見える。 */
+  .grid-cell--slim { min-height: 0; }
   .todo-check { width: 28px; height: 28px; }
   .todo-item { padding: 16px; }
   .todo-delete-btn { width: 44px; height: 44px; }
